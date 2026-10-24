@@ -35,23 +35,25 @@ export class FactCheckService implements OnModuleInit {
   async run(request: FactCheckRequest, hooks: StreamHooks): Promise<FactCheckResult> {
     if (!this.graph) throw new Error("El grafo todavía no está listo");
     const prisma = getPrisma();
-    const sessionId = request.sessionId ?? crypto.randomUUID();
-    const consulta = await prisma.consulta.create({
-      data: { sessionId, pregunta: request.query, degraded: !this.decisions.enabled() },
+    const sessionId = normalizeSessionId(request.sessionId);
+    await prisma.factSession.upsert({
+      where: { id: sessionId },
+      create: { id: sessionId },
+      update: {},
     });
 
     const result = await this.graph.invoke(
       {
         query: request.query,
         sessionId,
-        consultaId: consulta.id,
+        consultaId: sessionId,
         degraded: !this.decisions.enabled(),
       },
-      { configurable: { thread_id: consulta.id, hooks } },
+      { configurable: { thread_id: sessionId, hooks } },
     );
 
     const payload: FactCheckResult = factCheckResultSchema.parse({
-      id: consulta.id,
+      id: sessionId,
       sessionId,
       query: request.query,
       conclusion: result.conclusion,
@@ -61,11 +63,15 @@ export class FactCheckService implements OnModuleInit {
       entities: result.entities,
     });
 
-    await prisma.consulta.update({
-      where: { id: consulta.id },
+    const turn = await prisma.factTurn.create({
       data: {
-        respuesta: JSON.parse(JSON.stringify(payload)),
-        decisiones: JSON.parse(
+        sessionId,
+        role: "assistant",
+        content: payload.conclusion,
+        verdict: payload.verdicts[0]?.verdict ?? null,
+        confidence: payload.verdicts[0]?.confidence,
+        sources: JSON.parse(JSON.stringify(payload)),
+        choices: JSON.parse(
           JSON.stringify(
             result.verdicts.map((verdict) => ({
               claim: verdict.claim,
@@ -73,10 +79,9 @@ export class FactCheckService implements OnModuleInit {
             })),
           ),
         ),
-        degraded: payload.degraded,
       },
     });
-    return payload;
+    return { ...payload, id: turn.id.toString() };
   }
 
   private deps(): AgentDeps {
@@ -116,6 +121,13 @@ export class FactCheckService implements OnModuleInit {
       return new MemorySaver();
     }
   }
+}
+
+function normalizeSessionId(value: string | undefined): string {
+  if (value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
+    return value;
+  }
+  return crypto.randomUUID();
 }
 
 function uniqueSources(state: TumiState) {

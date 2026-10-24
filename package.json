@@ -9,9 +9,7 @@
     "dev": "pnpm --filter @tumi/contracts build && pnpm --filter @tumi/database build && pnpm run --parallel --filter @tumi/contracts --filter @tumi/api --filter @tumi/worker --filter @tumi/web dev",
     "build": "pnpm -r --if-present build",
     "test": "pnpm --filter @tumi/contracts test && pnpm --filter @tumi/api test",
-    "db:generate": "pnpm --filter @tumi/database generate",
-    "db:migrate": "pnpm --filter @tumi/database migrate",
-    "db:seed": "pnpm --filter @tumi/database seed"
+    "db:generate": "pnpm --filter @tumi/database generate"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

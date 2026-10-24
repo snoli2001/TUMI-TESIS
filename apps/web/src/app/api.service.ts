@@ -16,8 +16,8 @@ export interface StreamEvent {
 export class ApiService {
   constructor(private readonly http: HttpClient) {}
 
-  candidates() {
-    return this.http.get<CandidateSummary[]>("/api/candidates");
+  candidates(q: string) {
+    return this.http.get<CandidateSummary[]>("/api/candidates", { params: { q } });
   }
 
   candidate(id: string) {

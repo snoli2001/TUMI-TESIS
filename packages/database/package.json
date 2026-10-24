@@ -15,9 +15,7 @@
   "scripts": {
     "generate": "prisma generate",
     "build": "prisma generate && tsc -p tsconfig.json",
-    "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput",
-    "migrate": "prisma migrate deploy",
-    "seed": "node dist/seed.js"
+    "dev": "tsc -p tsconfig.json --watch --preserveWatchOutput"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.10.1",

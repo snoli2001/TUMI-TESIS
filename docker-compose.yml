@@ -1,21 +1,4 @@
 services:
-  postgres:
-    image: postgres:18-alpine
-    environment:
-      POSTGRES_USER: tumi
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tumi}
-      POSTGRES_DB: tumi
-    volumes:
-      - postgres_data_v18:/var/lib/postgresql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U tumi -d tumi"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-    networks:
-      - internal
-    restart: unless-stopped
-
   redis:
     image: redis:8-alpine
     command: ["redis-server", "--appendonly", "yes"]
@@ -49,7 +32,7 @@ services:
       dockerfile: docker/api.Dockerfile
       target: api
     environment:
-      DATABASE_URL: postgresql://tumi:${POSTGRES_PASSWORD:-tumi}@postgres:5432/tumi
+      DATABASE_URL: ${DATABASE_URL:?Define DATABASE_URL con la base goberlab de tumi2}
       REDIS_URL: redis://redis:6379
       QDRANT_URL: http://qdrant:6333
       PORT: 3000
@@ -65,8 +48,6 @@ services:
       AUTH_ENABLED: ${AUTH_ENABLED:-false}
       API_TOKEN: ${API_TOKEN:-}
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
       qdrant:
@@ -95,14 +76,12 @@ services:
       dockerfile: docker/api.Dockerfile
       target: worker
     environment:
-      DATABASE_URL: postgresql://tumi:${POSTGRES_PASSWORD:-tumi}@postgres:5432/tumi
+      DATABASE_URL: ${DATABASE_URL:?Define DATABASE_URL con la base goberlab de tumi2}
       REDIS_URL: redis://redis:6379
       QDRANT_URL: http://qdrant:6333
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-large}
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
       qdrant:
@@ -132,6 +111,5 @@ networks:
     external: true
 
 volumes:
-  postgres_data_v18:
   redis_data:
   qdrant_data:

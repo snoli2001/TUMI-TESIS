@@ -39,35 +39,30 @@ export class VectorSearchService {
     const words = tokens(query).slice(0, 8);
     if (words.length === 0) return [];
     const prisma = getPrisma();
-    const [fragmentos, planes] = await Promise.all([
-      prisma.fragmento.findMany({
-        where: { OR: words.map((word) => ({ texto: { contains: word, mode: "insensitive" } })) },
-        include: { documento: true },
-        take: 8,
-      }),
-      prisma.planGobierno.findMany({
-        where: { OR: words.map((word) => ({ resumen: { contains: word, mode: "insensitive" } })) },
-        take: 4,
-      }),
-    ]);
-    return [
-      ...fragmentos.map((row) => ({
-        id: row.id,
-        title: row.documento.titulo,
-        url: row.documento.url,
-        snippet: row.texto,
-        origin: "jne" as const,
-        candidatoId: row.documento.candidatoId,
-      })),
-      ...planes.map((plan) => ({
-        id: plan.id,
-        title: plan.titulo,
-        url: null,
-        snippet: plan.resumen,
-        origin: "jne" as const,
-        candidatoId: plan.candidatoId,
-      })),
-    ];
+    const proposals = await prisma.planProposal.findMany({
+      where: {
+        OR: words.flatMap((word) => [
+          { problema: { contains: word, mode: "insensitive" } },
+          { objetivo: { contains: word, mode: "insensitive" } },
+          { meta: { contains: word, mode: "insensitive" } },
+        ]),
+      },
+      include: { dimension: true },
+      take: 8,
+    });
+    return proposals.flatMap((proposal) => {
+      const snippet = [proposal.problema, proposal.objetivo, proposal.meta].filter(Boolean).join(" ");
+      if (!snippet) return [];
+      return [
+        {
+          id: proposal.id.toString(),
+          title: proposal.dimension.name,
+          url: null,
+          snippet,
+          origin: "jne" as const,
+        },
+      ];
+    });
   }
 
   private async searchQdrant(query: string): Promise<EvidenceItem[]> {

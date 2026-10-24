@@ -23,35 +23,40 @@ export class JneSearchService {
   }
 
   private async searchPostgres(query: string): Promise<EntityRef[]> {
-    const words = tokens(query).slice(0, 8);
+    const words = tokens(query).slice(0, 4);
     if (words.length === 0) return [];
-    const prisma = getPrisma();
-    const rows = await prisma.candidato.findMany({
+    const rows = await getPrisma().candidate.findMany({
       where: {
-        OR: words.flatMap((word) => [
-          { nombre: { contains: word, mode: "insensitive" } },
-          { cargo: { contains: word, mode: "insensitive" } },
-          { partido: { nombre: { contains: word, mode: "insensitive" } } },
-          { partido: { sigla: { contains: word, mode: "insensitive" } } },
-        ]),
+        AND: words.map((word) => ({
+          OR: [
+            { nombres: { contains: word, mode: "insensitive" as const } },
+            { apellidoPaterno: { contains: word, mode: "insensitive" as const } },
+            { apellidoMaterno: { contains: word, mode: "insensitive" as const } },
+            { cargoEleccion: { contains: word, mode: "insensitive" as const } },
+            { list: { organization: { name: { contains: word, mode: "insensitive" as const } } } },
+          ],
+        })),
       },
-      include: { partido: true },
-      take: 8,
+      include: { list: { include: { organization: true } } },
+      take: 12,
     });
     return rows
-      .map((row) => ({
-        score: words.filter((word) =>
-          `${row.nombre} ${row.partido.nombre} ${row.partido.sigla ?? ""}`
-            .toLowerCase()
-            .includes(word),
-        ).length,
-        entity: {
-          id: row.id,
-          nombre: row.nombre,
-          cargo: row.cargo,
-          partido: row.partido.nombre,
-        } satisfies EntityRef,
-      }))
+      .map((row) => {
+        const nombre = [row.nombres, row.apellidoPaterno, row.apellidoMaterno].join(" ");
+        const partido = row.list.organization.name;
+        const score = words.filter((word) =>
+          `${nombre} ${partido} ${row.cargoEleccion}`.toLowerCase().includes(word),
+        ).length;
+        return {
+          score,
+          entity: {
+            id: row.hojaVidaId,
+            nombre,
+            cargo: row.cargoEleccion,
+            partido,
+          } satisfies EntityRef,
+        };
+      })
       .sort((left, right) => right.score - left.score)
       .map((row) => row.entity);
   }

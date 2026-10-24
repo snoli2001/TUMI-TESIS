@@ -10,13 +10,20 @@ import { ApiService } from "../api.service";
 })
 export class CandidatesPage {
   private readonly api = inject(ApiService);
+  q = signal("");
   rows = signal<CandidateSummary[]>([]);
   error = signal("");
 
-  constructor() {
-    this.api.candidates().subscribe({
+  search(): void {
+    const q = this.q().trim();
+    this.error.set("");
+    if (q.length < 3) {
+      this.rows.set([]);
+      return;
+    }
+    this.api.candidates(q).subscribe({
       next: (rows) => this.rows.set(rows),
-      error: () => this.error.set("No se pudo cargar el padrón de demostración."),
+      error: () => this.error.set("No se pudo consultar el padrón."),
     });
   }
 }

@@ -5,82 +5,138 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  schemas  = ["tumi"]
 }
 
-model Partido {
-  id           String      @id
-  nombre       String
-  sigla        String?
-  demostracion Boolean     @default(true)
-  candidatos   Candidato[]
-  createdAt    DateTime    @default(now()) @map("created_at")
+model Organization {
+  sourceId String         @id @map("source_id")
+  name     String
+  lists    ElectionList[]
 
-  @@map("partidos")
+  @@map("organizations")
+  @@schema("tumi")
 }
 
-model Candidato {
-  id           String         @id
-  nombre       String
-  cargo        String
-  biografia    String
-  demostracion Boolean        @default(true)
-  partidoId    String         @map("partido_id")
-  partido      Partido        @relation(fields: [partidoId], references: [id])
-  planes       PlanGobierno[]
-  documentos   Documento[]
-  createdAt    DateTime       @default(now()) @map("created_at")
+model ElectionList {
+  sourceId             String       @id @map("source_id")
+  codigoExpediente     String       @map("codigo_expediente")
+  organizationSourceId String       @map("organization_source_id")
+  organization         Organization @relation(fields: [organizationSourceId], references: [sourceId])
+  plan                 Plan?        @relation(fields: [codigoExpediente], references: [codigoExpediente])
+  candidates           Candidate[]
 
-  @@index([nombre])
-  @@map("candidatos")
+  @@map("lists")
+  @@schema("tumi")
 }
 
-model PlanGobierno {
-  id           String    @id
-  titulo       String
-  resumen      String
-  demostracion Boolean   @default(true)
-  candidatoId  String    @map("candidato_id")
-  candidato    Candidato @relation(fields: [candidatoId], references: [id], onDelete: Cascade)
+model Candidate {
+  hojaVidaId      String       @id @map("hoja_vida_id")
+  listSourceId    String       @map("list_source_id")
+  numeroCandidato Int          @map("numero_candidato")
+  nombres         String
+  apellidoPaterno String       @map("apellido_paterno")
+  apellidoMaterno String       @map("apellido_materno")
+  cargoEleccion   String       @map("cargo_eleccion")
+  estadoCandidato String       @default("") @map("estado_candidato")
+  list            ElectionList @relation(fields: [listSourceId], references: [sourceId])
+  resume          Resume?
 
-  @@map("planes_gobierno")
+  @@map("candidates")
+  @@schema("tumi")
 }
 
-model Documento {
-  id           String      @id
-  titulo       String
-  origen       String
-  url          String?
-  contenido    String
-  demostracion Boolean     @default(true)
-  candidatoId  String?     @map("candidato_id")
-  candidato    Candidato?  @relation(fields: [candidatoId], references: [id])
-  fragmentos   Fragmento[]
-  createdAt    DateTime    @default(now()) @map("created_at")
+model Resume {
+  hojaVidaId String            @id @map("hoja_vida_id")
+  cargo      String?
+  candidate  Candidate         @relation(fields: [hojaVidaId], references: [hojaVidaId])
+  work       ResumeWork[]
+  education  ResumeEducation[]
 
-  @@map("documentos")
+  @@map("resumes")
+  @@schema("tumi")
 }
 
-model Fragmento {
-  id            String    @id
-  texto         String
-  orden         Int
-  qdrantPointId String?   @map("qdrant_point_id")
-  documentoId   String    @map("documento_id")
-  documento     Documento @relation(fields: [documentoId], references: [id], onDelete: Cascade)
+model ResumeWork {
+  id                  BigInt  @id @default(autoincrement())
+  hojaVidaId          String  @map("hoja_vida_id")
+  sourceId            String  @map("source_id")
+  centroTrabajo       String? @map("centro_trabajo")
+  ocupacionProfesion  String? @map("ocupacion_profesion")
+  resume              Resume  @relation(fields: [hojaVidaId], references: [hojaVidaId], onDelete: Cascade)
 
-  @@index([documentoId])
-  @@map("fragmentos")
+  @@map("resume_work")
+  @@schema("tumi")
 }
 
-model Consulta {
-  id         String   @id @default(cuid())
-  sessionId  String   @map("session_id")
-  pregunta   String
-  respuesta  Json?
-  decisiones Json?
-  degraded   Boolean  @default(false)
-  createdAt  DateTime @default(now()) @map("created_at")
+model ResumeEducation {
+  id          BigInt  @id @default(autoincrement())
+  hojaVidaId  String  @map("hoja_vida_id")
+  sourceId    String  @map("source_id")
+  universidad String?
+  carrera     String?
+  resume      Resume  @relation(fields: [hojaVidaId], references: [hojaVidaId], onDelete: Cascade)
 
-  @@index([sessionId, createdAt])
-  @@map("consultas")
+  @@map("resume_education")
+  @@schema("tumi")
+}
+
+model Plan {
+  codigoExpediente String          @id @map("codigo_expediente")
+  ideario          String?
+  vision           String?
+  fullPdfSourceUrl String?         @map("full_pdf_source_url")
+  summaryPdfSourceUrl String?      @map("summary_pdf_source_url")
+  lists            ElectionList[]
+  dimensions       PlanDimension[]
+
+  @@map("plans")
+  @@schema("tumi")
+}
+
+model PlanDimension {
+  id               BigInt         @id @default(autoincrement())
+  codigoExpediente String         @map("codigo_expediente")
+  name             String
+  plan             Plan           @relation(fields: [codigoExpediente], references: [codigoExpediente], onDelete: Cascade)
+  proposals        PlanProposal[]
+
+  @@map("plan_dimensions")
+  @@schema("tumi")
+}
+
+model PlanProposal {
+  id          BigInt        @id @default(autoincrement())
+  dimensionId BigInt        @map("dimension_id")
+  problema    String?
+  objetivo    String?
+  meta        String?
+  dimension   PlanDimension @relation(fields: [dimensionId], references: [id], onDelete: Cascade)
+
+  @@map("plan_proposals")
+  @@schema("tumi")
+}
+
+model FactSession {
+  id    String     @id @db.Uuid
+  turns FactTurn[]
+
+  @@map("fact_sessions")
+  @@schema("tumi")
+}
+
+model FactTurn {
+  id         BigInt      @id @default(autoincrement())
+  sessionId  String      @map("session_id") @db.Uuid
+  role       String
+  content    String
+  verdict    String?
+  confidence Float?
+  sources    Json
+  choices    Json
+  createdAt  DateTime    @default(now()) @map("created_at")
+  session    FactSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, id])
+  @@map("fact_turns")
+  @@schema("tumi")
 }
