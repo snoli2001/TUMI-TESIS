@@ -5,6 +5,8 @@ dist-test
 coverage
 *.tsbuildinfo
 .env
+.env.*
+!.env.example
 packages/database/src/generated
 .pnpm-store
 *.log
