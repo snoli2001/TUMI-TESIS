@@ -1,0 +1,86 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Partido {
+  id           String      @id
+  nombre       String
+  sigla        String?
+  demostracion Boolean     @default(true)
+  candidatos   Candidato[]
+  createdAt    DateTime    @default(now()) @map("created_at")
+
+  @@map("partidos")
+}
+
+model Candidato {
+  id           String         @id
+  nombre       String
+  cargo        String
+  biografia    String
+  demostracion Boolean        @default(true)
+  partidoId    String         @map("partido_id")
+  partido      Partido        @relation(fields: [partidoId], references: [id])
+  planes       PlanGobierno[]
+  documentos   Documento[]
+  createdAt    DateTime       @default(now()) @map("created_at")
+
+  @@index([nombre])
+  @@map("candidatos")
+}
+
+model PlanGobierno {
+  id           String    @id
+  titulo       String
+  resumen      String
+  demostracion Boolean   @default(true)
+  candidatoId  String    @map("candidato_id")
+  candidato    Candidato @relation(fields: [candidatoId], references: [id], onDelete: Cascade)
+
+  @@map("planes_gobierno")
+}
+
+model Documento {
+  id           String      @id
+  titulo       String
+  origen       String
+  url          String?
+  contenido    String
+  demostracion Boolean     @default(true)
+  candidatoId  String?     @map("candidato_id")
+  candidato    Candidato?  @relation(fields: [candidatoId], references: [id])
+  fragmentos   Fragmento[]
+  createdAt    DateTime    @default(now()) @map("created_at")
+
+  @@map("documentos")
+}
+
+model Fragmento {
+  id            String    @id
+  texto         String
+  orden         Int
+  qdrantPointId String?   @map("qdrant_point_id")
+  documentoId   String    @map("documento_id")
+  documento     Documento @relation(fields: [documentoId], references: [id], onDelete: Cascade)
+
+  @@index([documentoId])
+  @@map("fragmentos")
+}
+
+model Consulta {
+  id         String   @id @default(cuid())
+  sessionId  String   @map("session_id")
+  pregunta   String
+  respuesta  Json?
+  decisiones Json?
+  degraded   Boolean  @default(false)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([sessionId, createdAt])
+  @@map("consultas")
+}

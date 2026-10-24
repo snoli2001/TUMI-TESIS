@@ -1,0 +1,17 @@
+<header class="topbar">
+  <a class="brand" routerLink="/">
+    <span class="mark" aria-hidden="true"></span>
+    <span>
+      <strong>TUMI</strong>
+      <small>Verificación electoral</small>
+    </span>
+  </a>
+  <nav>
+    <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Consulta</a>
+    <a routerLink="/candidatos" routerLinkActive="active">Candidatos</a>
+    <a routerLink="/historial" routerLinkActive="active">Historial</a>
+  </nav>
+</header>
+<main>
+  <router-outlet />
+</main>

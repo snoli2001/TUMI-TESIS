@@ -1,0 +1,10 @@
+node_modules
+dist
+dist-test
+.angular
+coverage
+*.tsbuildinfo
+.env
+packages/database/src/generated
+.pnpm-store
+*.log

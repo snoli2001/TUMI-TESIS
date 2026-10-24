@@ -1,0 +1,24 @@
+{
+  "name": "tumi",
+  "private": true,
+  "packageManager": "pnpm@10.20.0",
+  "engines": {
+    "node": ">=22.22.3"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @tumi/contracts build && pnpm --filter @tumi/database build && pnpm run --parallel --filter @tumi/contracts --filter @tumi/api --filter @tumi/worker --filter @tumi/web dev",
+    "build": "pnpm -r --if-present build",
+    "test": "pnpm --filter @tumi/contracts test && pnpm --filter @tumi/api test",
+    "db:generate": "pnpm --filter @tumi/database generate",
+    "db:migrate": "pnpm --filter @tumi/database migrate",
+    "db:seed": "pnpm --filter @tumi/database seed"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@prisma/client",
+      "@prisma/engines",
+      "esbuild",
+      "prisma"
+    ]
+  }
+}

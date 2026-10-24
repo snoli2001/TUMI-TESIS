@@ -1,0 +1,16 @@
+<h1>Candidatos</h1>
+<p class="muted">Registros de demostración. No son datos oficiales del JNE.</p>
+@if (error()) {
+  <p>{{ error() }}</p>
+}
+<div class="grid">
+  @for (row of rows(); track row.id) {
+    <a class="panel card" [routerLink]="['/candidatos', row.id]">
+      @if (row.demostracion) {
+        <span class="badge">Demostración</span>
+      }
+      <h2>{{ row.nombre }}</h2>
+      <p>{{ row.cargo }} · {{ row.partido }}</p>
+    </a>
+  }
+</div>

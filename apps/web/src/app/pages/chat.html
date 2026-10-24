@@ -1,0 +1,74 @@
+<section class="layout">
+  <div>
+    <p class="eyebrow">Consulta ciudadana</p>
+    <h1>Contrasta una afirmación con fuentes.</h1>
+    <form (submit)="$event.preventDefault(); submit()">
+      <textarea
+        [value]="query()"
+        (input)="query.set($any($event.target).value)"
+        placeholder="Ejemplo: Aurora Quispe Demo prometió un tren eléctrico al Callao."
+      ></textarea>
+      <button type="submit" [disabled]="busy()">
+        {{ busy() ? "Verificando…" : "Verificar" }}
+      </button>
+    </form>
+    @if (error()) {
+      <p class="error">{{ error() }}</p>
+    }
+    @if (nodes().length) {
+      <ol class="nodes">
+        @for (node of nodes(); track node.node) {
+          <li>{{ node.node }} · {{ node.status }}</li>
+        }
+      </ol>
+    }
+    @if (draft() || result()) {
+      <article class="panel answer">
+        @if (result()?.degraded) {
+          <span class="badge">Demostración</span>
+        }
+        <p class="prose">{{ draft() || result()?.conclusion }}</p>
+      </article>
+    }
+    @for (verdict of verdicts(); track verdict.claim) {
+      <article class="panel verdict-card">
+        <p class="verdict">{{ verdict.verdict.replace("_", " ") }}</p>
+        <p>{{ verdict.claim }}</p>
+        @if (verdict.confidence !== null) {
+          <p class="muted">Confianza {{ (verdict.confidence * 100).toFixed(0) }}%</p>
+          <div class="bar"><span [style.width.%]="verdict.confidence * 100"></span></div>
+        }
+        @for (decision of verdict.decisions; track decision.name) {
+          <p class="muted decision">
+            {{ decision.name }} · {{ decision.type }}
+            @if (decision.type === "predicate") {
+              · {{ (decision.probability * 100).toFixed(0) }}%
+            }
+            @if (decision.type === "choice") {
+              · {{ decision.choice }} ({{ (decision.confidence * 100).toFixed(0) }}%)
+            }
+            @if (decision.type === "score") {
+              · {{ decision.score.toFixed(2) }}
+            }
+          </p>
+        }
+      </article>
+    }
+  </div>
+  <aside class="panel">
+    <h2>Fuentes</h2>
+    @if (!sources().length) {
+      <p class="muted">Aparecen cuando la recuperación termina.</p>
+    }
+    @for (source of sources(); track source.id) {
+      <article>
+        <strong>{{ source.title }}</strong>
+        <p class="muted">{{ source.origin }}</p>
+        <p>{{ source.snippet }}</p>
+        @if (source.url) {
+          <a [href]="source.url" target="_blank" rel="noreferrer">Abrir</a>
+        }
+      </article>
+    }
+  </aside>
+</section>

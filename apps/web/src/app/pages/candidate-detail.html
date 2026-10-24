@@ -1,0 +1,26 @@
+<p><a routerLink="/candidatos">Volver</a></p>
+@if (error()) {
+  <p>{{ error() }}</p>
+}
+@if (profile(); as profile) {
+  @if (profile.demostracion) {
+    <span class="badge">Demostración</span>
+  }
+  <h1>{{ profile.nombre }}</h1>
+  <p class="muted">{{ profile.cargo }} · {{ profile.partido }} @if (profile.sigla) { ({{ profile.sigla }}) }</p>
+  <p>{{ profile.biografia }}</p>
+  <h2>Planes</h2>
+  @for (plan of profile.planes; track plan.id) {
+    <article class="panel">
+      <h3>{{ plan.titulo }}</h3>
+      <p>{{ plan.resumen }}</p>
+    </article>
+  }
+  <h2>Documentos</h2>
+  @for (doc of profile.documentos; track doc.id) {
+    <article class="panel">
+      <strong>{{ doc.titulo }}</strong>
+      <p class="muted">{{ doc.origen }}</p>
+    </article>
+  }
+}

@@ -1,0 +1,17 @@
+<h1>Historial de esta sesión</h1>
+@if (error()) {
+  <p>{{ error() }}</p>
+}
+@if (!rows().length && !error()) {
+  <p class="muted">Todavía no hay consultas guardadas en este navegador.</p>
+}
+@for (row of rows(); track row.id) {
+  <article class="panel">
+    @if (row.degraded) {
+      <span class="badge">Demostración</span>
+    }
+    <h2>{{ row.query }}</h2>
+    <p>{{ row.conclusion }}</p>
+    <p class="muted">{{ row.createdAt }}</p>
+  </article>
+}

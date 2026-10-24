@@ -1,0 +1,36 @@
+{
+  "name": "@tumi/api",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "nest start --watch",
+    "build": "nest build",
+    "start": "node dist/main.js",
+    "test": "tsc -p tsconfig.spec.json && node --test dist-test/agents/pipeline.test.js"
+  },
+  "dependencies": {
+    "@langchain/core": "^1.1.16",
+    "@langchain/langgraph": "^1.5.2",
+    "@langchain/langgraph-checkpoint": "^1.2.1",
+    "@langchain/langgraph-checkpoint-postgres": "^1.1.2",
+    "@langchain/openai": "^1.7.0",
+    "@nestjs/common": "^12.2.0",
+    "@nestjs/core": "^12.2.0",
+    "@nestjs/platform-express": "^12.2.0",
+    "@qdrant/js-client-rest": "^1.16.0",
+    "@tumi/contracts": "workspace:*",
+    "@tumi/database": "workspace:*",
+    "ioredis": "^5.8.2",
+    "openai": "^7.43.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^12.0.10",
+    "@nestjs/schematics": "^12.0.10",
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.9.2",
+    "typescript": "~6.0.2"
+  }
+}

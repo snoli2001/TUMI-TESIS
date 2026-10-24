@@ -1,0 +1,9 @@
+**/node_modules
+**/dist
+**/dist-test
+**/.angular
+.git
+.env
+*.md
+agent-tools
+terminals
