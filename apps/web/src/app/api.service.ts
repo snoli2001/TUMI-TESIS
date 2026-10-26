@@ -28,34 +28,42 @@ export class ApiService {
     return this.http.get<HistoryItem[]>("/api/history", { params: { sessionId } });
   }
 
-  async streamFactCheck(
-    query: string,
-    sessionId: string,
-    onEvent: (event: StreamEvent) => void,
-  ): Promise<void> {
-    const response = await fetch("/api/fact-check/stream", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ query, sessionId }),
-    });
-    if (!response.ok || !response.body) {
-      const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-      throw new Error(payload?.message ?? "No se pudo abrir la verificación");
-    }
+  streamFactCheck(query: string, sessionId: string, onEvent: (event: StreamEvent) => void) {
+    return streamPost("/api/fact-check/stream", { query, sessionId }, onEvent);
+  }
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const chunks = buffer.split("\n\n");
-      buffer = chunks.pop() ?? "";
-      for (const chunk of chunks) {
-        const event = parseSse(chunk);
-        if (event) onEvent(event);
-      }
+  streamVideo(transcripcion: string, sessionId: string, onEvent: (event: StreamEvent) => void) {
+    return streamPost("/api/verificar-video/stream", { transcripcion, sessionId }, onEvent);
+  }
+}
+
+async function streamPost(
+  path: string,
+  body: unknown,
+  onEvent: (event: StreamEvent) => void,
+): Promise<void> {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok || !response.body) {
+    const payload = (await response.json().catch(() => null)) as { message?: string } | null;
+    throw new Error(payload?.message ?? "No se pudo abrir la verificación");
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const chunks = buffer.split("\n\n");
+    buffer = chunks.pop() ?? "";
+    for (const chunk of chunks) {
+      const event = parseSse(chunk);
+      if (event) onEvent(event);
     }
   }
 }

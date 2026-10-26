@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { Queue, Worker } from "bullmq";
 import Redis from "ioredis";
+import { indexNextBatch } from "./plan-index";
 
 const QUEUE = "tumi-jobs";
 
@@ -17,13 +18,19 @@ export class IngestService implements OnModuleInit, OnModuleDestroy {
     const workerConnection = new Redis(url, { maxRetriesPerRequest: null });
     this.connections = [queueConnection, workerConnection];
     this.queue = new Queue(QUEUE, { connection: queueConnection });
-    this.worker = new Worker(QUEUE, (job) => this.handle(job.name), {
+    this.worker = new Worker(QUEUE, (job) => this.handle(job.name, job.data), {
       connection: workerConnection,
+      concurrency: 1,
+      lockDuration: 300_000,
     });
     this.worker.on("failed", (job, error) => {
       this.logger.error(`Job ${job?.name} falló: ${error.message}`);
     });
-    this.logger.log("El padrón se lee de la base goberlab. Este worker no carga candidatos.");
+    await this.queue.add(
+      "indexar-planes",
+      {},
+      { jobId: "indexar-planes", removeOnComplete: true, removeOnFail: 20 },
+    );
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -32,7 +39,23 @@ export class IngestService implements OnModuleInit, OnModuleDestroy {
     for (const connection of this.connections) connection.disconnect();
   }
 
-  private async handle(name: string): Promise<void> {
-    this.logger.log(`Job ${name} omitido: el catálogo vive en el esquema tumi de QAS.`);
+  private async handle(name: string, data: unknown): Promise<void> {
+    if (name !== "indexar-planes") return;
+    const after = isRecord(data) && typeof data.after === "string" ? data.after : undefined;
+    const batch = await indexNextBatch(after);
+    this.logger.log(
+      `Planes indexados ${batch.indexed}, omitidos ${batch.skipped}, fallidos ${batch.failed}, fragmentos ${batch.chunks}`,
+    );
+    if (batch.next) {
+      await this.queue?.add(
+        "indexar-planes",
+        { after: batch.next },
+        { removeOnComplete: true, removeOnFail: 20 },
+      );
+    }
   }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }

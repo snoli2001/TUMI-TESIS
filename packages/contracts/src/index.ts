@@ -8,6 +8,7 @@ import {
   type FactCheckRequest,
   type FactCheckResult,
   type SourceRef,
+  type VerificarVideoRequest,
 } from "./verdict-policy.js";
 
 export * from "./verdict-policy.js";
@@ -90,5 +91,10 @@ export const factCheckResultSchema: z.ZodType<FactCheckResult> = z.object({
 
 export const factCheckRequestSchema: z.ZodType<FactCheckRequest> = z.object({
   query: z.string().trim().min(3).max(2000),
+  sessionId: z.string().trim().min(1).max(80).optional(),
+});
+
+export const verificarVideoRequestSchema: z.ZodType<VerificarVideoRequest> = z.object({
+  transcripcion: z.string().trim().min(3).max(20000),
   sessionId: z.string().trim().min(1).max(80).optional(),
 });

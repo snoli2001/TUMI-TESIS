@@ -1,12 +1,14 @@
 import { Routes } from "@angular/router";
-import { CandidateDetailPage } from "./pages/candidate-detail";
-import { CandidatesPage } from "./pages/candidates";
-import { ChatPage } from "./pages/chat";
-import { HistoryPage } from "./pages/history";
+import { BuscarCandidatosPage } from "./candidatos/buscar-candidatos";
+import { VerCandidatoPage } from "./candidatos/ver-candidato";
+import { ConsultarHistorialPage } from "./historial/consultar-historial";
+import { VerificarAfirmacionPage } from "./verificar/verificar-afirmacion";
+import { VerificarVideoPage } from "./verificar-video/verificar-video";
 
 export const routes: Routes = [
-  { path: "", component: ChatPage },
-  { path: "candidatos", component: CandidatesPage },
-  { path: "candidatos/:id", component: CandidateDetailPage },
-  { path: "historial", component: HistoryPage },
+  { path: "", component: VerificarAfirmacionPage },
+  { path: "video", component: VerificarVideoPage },
+  { path: "candidatos", component: BuscarCandidatosPage },
+  { path: "candidatos/:id", component: VerCandidatoPage },
+  { path: "historial", component: ConsultarHistorialPage },
 ];

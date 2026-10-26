@@ -80,6 +80,27 @@ export interface FactCheckRequest {
   sessionId?: string;
 }
 
+export interface VideoSegmento {
+  texto: string;
+  inicioSeg: number | null;
+  finSeg: number | null;
+}
+
+export interface VerificarVideoRequest {
+  transcripcion: string;
+  sessionId?: string;
+}
+
+export interface AfirmacionDeVideo extends FactCheckResult {
+  inicioSeg: number | null;
+  finSeg: number | null;
+}
+
+export interface VerificarVideoResult {
+  sessionId: string;
+  afirmaciones: AfirmacionDeVideo[];
+}
+
 export interface CandidateSummary {
   id: string;
   nombre: string;
@@ -101,6 +122,8 @@ export interface HistoryItem {
   conclusion: string;
   degraded: boolean;
   createdAt: string;
+  inicioSeg: number | null;
+  finSeg: number | null;
 }
 
 export interface ResolvedVerdict {

@@ -5,5 +5,5 @@
     "rootDir": "src",
     "types": ["node"]
   },
-  "include": ["src/agents/**/*.ts", "src/text.ts"]
+  "include": ["src/verificar-afirmacion/grafo/**/*.ts"]
 }

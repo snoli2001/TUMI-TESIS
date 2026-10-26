@@ -13,19 +13,6 @@ services:
       - internal
     restart: unless-stopped
 
-  qdrant:
-    image: qdrant/qdrant:v1.20.0
-    volumes:
-      - qdrant_data:/qdrant/storage
-    healthcheck:
-      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/6333'"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-    networks:
-      - internal
-    restart: unless-stopped
-
   api:
     build:
       context: .
@@ -34,7 +21,8 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:?Define DATABASE_URL con la base goberlab de tumi2}
       REDIS_URL: redis://redis:6379
-      QDRANT_URL: http://qdrant:6333
+      QDRANT_URL: ${QDRANT_URL:?Define QDRANT_URL del Qdrant externo}
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-}
       PORT: 3000
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.1}
@@ -49,8 +37,6 @@ services:
       API_TOKEN: ${API_TOKEN:-}
     depends_on:
       redis:
-        condition: service_healthy
-      qdrant:
         condition: service_healthy
     healthcheck:
       test:
@@ -78,13 +64,12 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:?Define DATABASE_URL con la base goberlab de tumi2}
       REDIS_URL: redis://redis:6379
-      QDRANT_URL: http://qdrant:6333
+      QDRANT_URL: ${QDRANT_URL:?Define QDRANT_URL del Qdrant externo}
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-large}
     depends_on:
       redis:
-        condition: service_healthy
-      qdrant:
         condition: service_healthy
     networks:
       - internal
@@ -112,4 +97,3 @@ networks:
 
 volumes:
   redis_data:
-  qdrant_data:
