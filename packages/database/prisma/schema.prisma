@@ -84,8 +84,10 @@ model Plan {
   codigoExpediente String          @id @map("codigo_expediente")
   ideario          String?
   vision           String?
-  fullPdfSourceUrl String?         @map("full_pdf_source_url")
-  summaryPdfSourceUrl String?      @map("summary_pdf_source_url")
+  fullPdfSourceUrl    String? @map("full_pdf_source_url")
+  summaryPdfSourceUrl String? @map("summary_pdf_source_url")
+  fullPdfR2Key        String? @map("full_pdf_r2_key")
+  summaryPdfR2Key     String? @map("summary_pdf_r2_key")
   lists            ElectionList[]
   dimensions       PlanDimension[]
 

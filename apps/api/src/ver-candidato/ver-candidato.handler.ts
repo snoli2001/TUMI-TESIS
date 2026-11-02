@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from "@nestjs/common";
 import type { CandidateProfile } from "@tumi/contracts";
-import { getPrisma } from "@tumi/database";
+import { getPrisma, publicAssetUrl } from "@tumi/database";
 
 @Injectable()
 export class VerCandidatoHandler {
@@ -31,16 +31,31 @@ export class VerCandidatoHandler {
           .filter((text) => text.length > 0)
           .join(" "),
       })),
-      documentos: [
-        ...(plan?.fullPdfSourceUrl
-          ? [{ id: `${plan.codigoExpediente}-full`, titulo: "Plan de gobierno", url: plan.fullPdfSourceUrl, origen: "jne" }]
-          : []),
-        ...(plan?.summaryPdfSourceUrl
-          ? [{ id: `${plan.codigoExpediente}-summary`, titulo: "Resumen del plan", url: plan.summaryPdfSourceUrl, origen: "jne" }]
-          : []),
-      ],
+      documentos: planDocuments(plan),
     };
   }
+}
+
+function planDocuments(
+  plan: {
+    codigoExpediente: string;
+    fullPdfR2Key: string | null;
+    summaryPdfR2Key: string | null;
+    fullPdfSourceUrl: string | null;
+    summaryPdfSourceUrl: string | null;
+  } | null,
+): CandidateProfile["documentos"] {
+  if (!plan) return [];
+  const full = publicAssetUrl(plan.fullPdfR2Key) ?? plan.fullPdfSourceUrl;
+  const summary = publicAssetUrl(plan.summaryPdfR2Key) ?? plan.summaryPdfSourceUrl;
+  return [
+    ...(full
+      ? [{ id: `${plan.codigoExpediente}-full`, titulo: "Plan de gobierno", url: full, origen: plan.fullPdfR2Key ? "cdn" : "jne" }]
+      : []),
+    ...(summary
+      ? [{ id: `${plan.codigoExpediente}-summary`, titulo: "Resumen del plan", url: summary, origen: plan.summaryPdfR2Key ? "cdn" : "jne" }]
+      : []),
+  ];
 }
 
 function fullName(row: { nombres: string; apellidoPaterno: string; apellidoMaterno: string }): string {

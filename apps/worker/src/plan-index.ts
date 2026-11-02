@@ -1,4 +1,4 @@
-import { getPrisma } from "@tumi/database";
+import { getPrisma, publicAssetUrl } from "@tumi/database";
 import { extractText, getDocumentProxy } from "unpdf";
 import OpenAI from "openai";
 import { planAlreadyIndexed, upsertChunks, type PlanChunk } from "./qdrant-store";
@@ -24,7 +24,7 @@ export async function indexNextBatch(after?: string): Promise<IndexBatchResult> 
     },
     orderBy: { codigoExpediente: "asc" },
     take: BATCH,
-    select: { codigoExpediente: true, summaryPdfSourceUrl: true },
+    select: { codigoExpediente: true, summaryPdfSourceUrl: true, summaryPdfR2Key: true },
   });
   const result: IndexBatchResult = {
     next: plans.at(-1)?.codigoExpediente ?? null,
@@ -33,25 +33,26 @@ export async function indexNextBatch(after?: string): Promise<IndexBatchResult> 
     failed: 0,
     chunks: 0,
   };
-  const outcomes = [];
-  for (const plan of plans) {
-    if (!plan.summaryPdfSourceUrl) {
-      outcomes.push({ skipped: false, chunks: 0, failed: false });
-      continue;
-    }
-    try {
-      const saved = await indexSummaryPlan(plan.codigoExpediente, plan.summaryPdfSourceUrl);
-      outcomes.push({ skipped: saved.skipped, chunks: saved.chunks, failed: false });
-      if (!saved.skipped) await sleep(800);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (message.includes("OPENAI_API_KEY") || message.includes("invalid_api_key") || message.includes("401")) {
-        throw error;
+  const outcomes = await Promise.all(
+    plans.map(async (plan) => {
+      if (!plan.summaryPdfSourceUrl) return { skipped: false, chunks: 0, failed: false };
+      try {
+        const saved = await indexSummaryPlan(
+          plan.codigoExpediente,
+          publicAssetUrl(plan.summaryPdfR2Key) ?? plan.summaryPdfSourceUrl,
+          plan.summaryPdfSourceUrl,
+        );
+        return { skipped: saved.skipped, chunks: saved.chunks, failed: false };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (message.includes("OPENAI_API_KEY") || message.includes("invalid_api_key") || message.includes("401")) {
+          throw error;
+        }
+        console.warn(`plan ${plan.codigoExpediente} no se indexó: ${message}`);
+        return { skipped: false, chunks: 0, failed: true };
       }
-      console.warn(`plan ${plan.codigoExpediente} no se indexó: ${message}`);
-      outcomes.push({ skipped: false, chunks: 0, failed: true });
-    }
-  }
+    }),
+  );
   for (const outcome of outcomes) {
     if (outcome.failed) result.failed += 1;
     else if (outcome.skipped) result.skipped += 1;
@@ -65,9 +66,10 @@ export async function indexNextBatch(after?: string): Promise<IndexBatchResult> 
 export async function indexSummaryPlan(
   codigoExpediente: string,
   url: string,
+  officialUrl = url,
 ): Promise<{ skipped: boolean; chunks: number }> {
   if (await planAlreadyIndexed(codigoExpediente)) return { skipped: true, chunks: 0 };
-  const chunks = await chunksFromPdf(codigoExpediente, url);
+  const chunks = await chunksFromPdf(codigoExpediente, url, officialUrl);
   if (chunks.length === 0) return { skipped: false, chunks: 0 };
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   if (!process.env.OPENAI_API_KEY) throw new Error("Falta OPENAI_API_KEY para indexar los planes");
@@ -85,8 +87,16 @@ export async function indexSummaryPlan(
   return { skipped: false, chunks: chunks.length };
 }
 
-async function chunksFromPdf(codigoExpediente: string, url: string): Promise<PlanChunk[]> {
-  const bytes = await downloadPdf(url);
+async function chunksFromPdf(codigoExpediente: string, preferredUrl: string, officialUrl: string): Promise<PlanChunk[]> {
+  let url = preferredUrl;
+  let bytes: Uint8Array;
+  try {
+    bytes = await downloadPdf(preferredUrl);
+  } catch (error) {
+    if (preferredUrl === officialUrl) throw error;
+    url = officialUrl;
+    bytes = await downloadPdf(officialUrl);
+  }
   if (bytes.length < 5 || String.fromCharCode(...bytes.slice(0, 4)) !== "%PDF") {
     throw new Error("La URL no devolvió un PDF");
   }
