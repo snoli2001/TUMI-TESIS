@@ -1,4 +1,4 @@
-<p><a class="back" routerLink="/candidatos">Volver al padrón</a></p>
+<p><a class="back" routerLink="/">Volver a las candidaturas</a></p>
 @if (error()) {
   <p class="error">{{ error() }}</p>
 }
@@ -36,6 +36,9 @@
     </button>
     <button type="button" class="tab" role="tab" [attr.aria-selected]="tab() === 'plan'" (click)="tab.set('plan')">
       Plan de gobierno
+    </button>
+    <button type="button" class="tab" role="tab" [attr.aria-selected]="tab() === 'verificar'" (click)="tab.set('verificar')">
+      Verificar
     </button>
   </div>
 
@@ -219,7 +222,7 @@
         <p class="muted">Aún no tenemos la hoja de vida declarada para esta candidatura.</p>
       </section>
     }
-  } @else {
+  } @else if (tab() === "plan") {
     @if (profile.plan; as plan) {
       <section class="panel detail-section">
         <p class="eyebrow">Evidencia de la lista electoral</p>
@@ -289,5 +292,8 @@
         <p class="muted">Esta lista no tiene un plan de gobierno cargado.</p>
       </section>
     }
+  }
+  @if (tab() === "verificar") {
+    <app-verificar-candidato [hojaVidaId]="profile.id" [nombre]="profile.nombre"></app-verificar-candidato>
   }
 }

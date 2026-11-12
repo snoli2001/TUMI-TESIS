@@ -1,6 +1,7 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { EntityRef } from "@tumi/contracts";
 import type { AgentDeps, StreamHooks, TumiState } from "./state";
+import { nombresAlInicio, pruebaSirve } from "./menciones";
 
 function hooks(config: RunnableConfig): StreamHooks {
   return (
@@ -54,8 +55,12 @@ export async function retrieve(
   const stream = hooks(config);
   stream.onNode("recuperacion", "start");
   const found = await deps.searchEvidence(state.query, state.claims, state.entities, state.sessionId);
-  const prueba = found.filter((item) => item.role !== "contraste");
-  const contraste = found.filter((item) => item.role === "contraste");
+  const nombres = [
+    ...state.entities.flatMap((entity) => entity.nombre.split(/\s+/)),
+    ...state.claims.flatMap(nombresAlInicio),
+  ];
+  const prueba = found.filter((item) => item.role !== "contraste" && pruebaSirve(state.claims, item, nombres));
+  const contraste = found.filter((item) => !prueba.includes(item));
   const ranked = await deps.rerank(state.claims, prueba);
   const circulacion = await deps.clasificarCirculacion(state.claims, contraste);
   stream.onNode("recuperacion", "done");

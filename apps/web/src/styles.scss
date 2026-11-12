@@ -345,6 +345,18 @@ select:focus {
   box-shadow: 0 0 0 4px rgb(30 64 175 / 16%);
 }
 
+.jurisdiction {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.jurisdiction p {
+  margin: 0;
+  font-weight: 600;
+}
 .button-secondary,
 .tab,
 .chip {

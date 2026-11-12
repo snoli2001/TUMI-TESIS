@@ -1,0 +1,109 @@
+<section class="layout">
+  <div>
+    <p class="detail-note">Solo se contrasta un dato de {{ nombre() }} en las Elecciones Regionales y Municipales de 2026.</p>
+    <form class="composer" (submit)="$event.preventDefault(); submit()">
+      <label for="dato">Dato a contrastar</label>
+      <textarea
+        id="dato"
+        [value]="query()"
+        (input)="query.set($any($event.target).value)"
+        placeholder="Ejemplo: prometió un tren, o tiene una condena por estafa."
+      ></textarea>
+      <button type="submit" [disabled]="busy()">
+        {{ busy() ? "Verificando…" : "Verificar" }}
+      </button>
+    </form>
+    @if (error()) {
+      <p class="error" role="alert">{{ error() }}</p>
+    }
+    @if (nodes().length) {
+      <ol class="nodes" aria-label="Pasos de la verificación">
+        @for (node of nodes(); track node.node) {
+          <li [class.live]="node.status === 'start'">{{ etiquetaPaso(node.node) }} · {{ etiquetaEstado(node.status) }}</li>
+        }
+      </ol>
+    }
+    @if (draft() || result()) {
+      <article class="panel answer">
+        <div class="prose" [innerHTML]="formato(draft() || result()?.conclusion || '')"></div>
+      </article>
+    }
+    @for (verdict of verdicts(); track verdict.claim) {
+      <article class="panel verdict-card">
+        <p class="verdict" [attr.data-verdict]="verdict.verdict">{{ verdict.verdict.replace("_", " ") }}</p>
+        <div class="cita">
+          <div>
+            <p class="eyebrow">Afirmación</p>
+            <p>{{ verdict.claim }}</p>
+          </div>
+          @if (cita(verdict.sources); as fuente) {
+            <div>
+              <p class="eyebrow">Plan de gobierno</p>
+              <p>{{ fuente.snippet }}</p>
+              <p class="muted">
+                @if (fuente.codigoExpediente) {
+                  {{ fuente.codigoExpediente }}
+                }
+                @if (fuente.pagina !== null) {
+                  · página {{ fuente.pagina }}
+                }
+              </p>
+              @if (fuente.url) {
+                <a [href]="fuente.url" target="_blank" rel="noreferrer">Abrir esta página</a>
+              }
+            </div>
+          }
+        </div>
+        @if (verdict.confidence !== null) {
+          <p class="muted">Confianza {{ (verdict.confidence * 100).toFixed(0) }}%</p>
+          <div class="bar"><span [style.width.%]="verdict.confidence * 100"></span></div>
+        }
+        @if (lectura(verdict); as clasificador) {
+          @if (clasificador.respalda !== null) {
+            <p class="muted">Respalda {{ (clasificador.respalda * 100).toFixed(0) }}%</p>
+            <div class="bar"><span [style.width.%]="clasificador.respalda * 100"></span></div>
+          }
+          @if (clasificador.niega !== null) {
+            <p class="muted">Niega {{ (clasificador.niega * 100).toFixed(0) }}%</p>
+            <div class="bar"><span [style.width.%]="clasificador.niega * 100"></span></div>
+          }
+          @if (clasificador.solidez !== null) {
+            <p class="muted">Solidez @if (clasificador.solidezTexto) { {{ clasificador.solidezTexto }} }</p>
+            <div class="bar"><span [style.width.%]="clasificador.solidez * 100"></span></div>
+          }
+        }
+      </article>
+    }
+  </div>
+  <aside class="panel">
+    <h2>Fuentes</h2>
+    <p class="muted">La hoja de vida, el padrón y el plan de esta lista. Una red social no sostiene el veredicto.</p>
+    @if (result() && !prueba().length) {
+      <p class="muted">Esta respuesta no usa una fuente externa.</p>
+    }
+    @for (source of prueba(); track source.id) {
+      <article>
+        <strong>{{ source.title }}</strong>
+        <p class="muted">{{ etiquetaOrigen(source.origin) }}</p>
+        <p>{{ source.snippet }}</p>
+        @if (source.url) {
+          <a [href]="source.url" target="_blank" rel="noreferrer">Abrir fuente</a>
+        }
+      </article>
+    }
+    <h2 class="circula">Circula también</h2>
+    @if (result() && !contraste().length) {
+      <p class="muted">Ninguna en esta consulta.</p>
+    }
+    @for (source of contraste(); track source.id) {
+      <article>
+        <strong>{{ source.title }}</strong>
+        <p class="postura">{{ etiquetaPostura(source.stance) }}</p>
+        <p>{{ source.snippet }}</p>
+        @if (source.url) {
+          <a [href]="source.url" target="_blank" rel="noreferrer">Abrir página</a>
+        }
+      </article>
+    }
+  </aside>
+</section>

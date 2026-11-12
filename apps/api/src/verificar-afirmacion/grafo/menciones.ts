@@ -29,6 +29,59 @@ export function menciones(query: string): string[] {
   return [...new Set(picked)].slice(0, 3);
 }
 
+const RELLENO = new Set([
+  "que",
+  "del",
+  "los",
+  "las",
+  "una",
+  "uno",
+  "por",
+  "con",
+  "para",
+  "como",
+  "esta",
+  "este",
+  "eso",
+  "esa",
+  "sus",
+  "son",
+  "ser",
+  "hay",
+  "mas",
+  "the",
+  "sobre",
+  "entre",
+  "desde",
+  "hasta",
+]);
+
+export function nombresAlInicio(query: string): string[] {
+  const words = query.match(/\p{L}+/gu) ?? [];
+  const primero = words[0];
+  const segundo = words[1];
+  if (!primero || !segundo || !empiezaEnMayuscula(primero)) return [];
+  if (segundo.length < 3 || RELLENO.has(plegar(segundo))) return [];
+  return [primero, segundo];
+}
+
+export function pruebaSirve(
+  claims: string[],
+  item: { origin: string; title: string; snippet: string },
+  nombres: string[],
+): boolean {
+  if (item.origin !== "tavily") return true;
+  const omitidos = new Set(
+    nombres.flatMap((nombre) => plegar(nombre).split(/\s+/)).filter((word) => word.length > 2),
+  );
+  const text = plegar(`${item.title} ${item.snippet}`);
+  const tokens = (claims.join(" ").match(/\p{L}+/gu) ?? [])
+    .map(plegar)
+    .filter((word) => word.length >= 5 && !RELLENO.has(word) && !omitidos.has(word));
+  if (tokens.length === 0) return false;
+  return tokens.some((token) => text.includes(token));
+}
+
 export function mejorCoincidencia<T extends { id: string; nombre: string }>(
   hits: Array<{ entity: T; tokens: string[] }>,
 ): T[] {

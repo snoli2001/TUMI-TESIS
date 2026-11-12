@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mejorCoincidencia, menciones, nombresEnTexto } from "./menciones";
+import { mejorCoincidencia, menciones, nombresAlInicio, nombresEnTexto, pruebaSirve } from "./menciones";
 
 test("toma el apodo en mayúscula y no la primera palabra de la frase", () => {
   assert.deepEqual(menciones("Los trenes de Porky no sirven"), ["Porky"]);
@@ -35,6 +35,19 @@ test("se queda con quien coincide en más partes del nombre", () => {
     },
   ]);
   assert.deepEqual(kept.map((entity) => entity.id), ["aliaga"]);
+});
+
+test("toma el apellido que sigue a un nombre escrito solo con la primera mayúscula", () => {
+  assert.deepEqual(nombresAlInicio("Lopez aliaga es un violador"), ["Lopez", "aliaga"]);
+});
+
+test("una nota que no menciona el hecho no sirve de prueba", () => {
+  const nota = {
+    origin: "tavily",
+    title: "Allison responsabiliza a López Aliaga y al JNE por crisis en Lima",
+    snippet: "Allison cuestionó que el JNE no haya establecido este criterio con anticipación.",
+  };
+  assert.equal(pruebaSirve(["Lopez aliaga es un violador"], nota, ["Lopez", "aliaga"]), false);
 });
 
 test("arma nombres propios a partir del texto del buscador", () => {

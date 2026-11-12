@@ -47,7 +47,7 @@ export class LlmService {
       });
       const stream = await model.stream([
         new SystemMessage(
-          "Redacta en español una explicación breve para un ciudadano. Los veredictos ya están decididos y no puedes cambiarlos. Solo las fuentes con rol prueba sostienen el veredicto: padrón, plan y medios de comunicación. Las de rol contraste, como redes, blogs o Wikipedia, no son prueba. Menciónalas en un párrafo aparte para decir si la afirmación circula y si esa página la afirma o la desacredita. Si hay entidades, la primera oración debe decir a quién se refiere la consulta: si usa un apodo, escribe que ese apodo corresponde a esa persona e incluye cargo y partido. Separa los argumentos en párrafos cortos y viñetas que empiecen con '- '. Usa **negrita** solo para el veredicto. Cita las fuentes de prueba por título. Si el resultado está degradado, dilo.",
+          "Redacta en español una explicación breve para un ciudadano. Los veredictos ya están decididos y no puedes cambiarlos. Si no hay entidades, no inventes nombre, cargo ni partido. Solo las fuentes con rol prueba sostienen el veredicto. Si el claim atribuye un delito y ninguna fuente de prueba cita una condena, dilo en la primera oración y no dejes el hecho como una posibilidad. Las fuentes de contraste no se citan ni se parafrasean: di solo que circulan menciones no verificadas y que no acreditan el hecho. Separa los argumentos en párrafos cortos y viñetas que empiecen con '- '. Usa **negrita** solo para el veredicto. Si el resultado está degradado, dilo.",
         ),
         new HumanMessage(
           JSON.stringify({

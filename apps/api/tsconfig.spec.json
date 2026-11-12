@@ -7,6 +7,8 @@
   },
   "include": [
     "src/verificar-afirmacion/grafo/**/*.ts",
+    "src/verificar-afirmacion/ficha/reglas.ts",
+    "src/verificar-afirmacion/ficha/reglas.test.ts",
     "src/verificar-afirmacion/evidencia/medios.ts",
     "src/verificar-afirmacion/evidencia/medios.test.ts"
   ]

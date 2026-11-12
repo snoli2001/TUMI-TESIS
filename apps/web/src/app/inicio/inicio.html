@@ -1,0 +1,87 @@
+<header class="page-intro">
+  <p class="eyebrow">Elecciones Regionales y Municipales · 4 oct 2026</p>
+  <h1>Vota con certeza, no con suerte.</h1>
+  <p class="lede">
+    El 4 de octubre se eligen gobernadores regionales y alcaldes provinciales y distritales. TUMI muestra las candidaturas oficiales del JNE para el distrito que elijas.
+  </p>
+</header>
+
+@if (!confirmed()) {
+  <form class="composer" (submit)="$event.preventDefault(); confirm()">
+    <h2>¿Qué distrito quieres consultar?</h2>
+    <p class="muted">Selecciona departamento, provincia y distrito.</p>
+    <label for="departamento">Departamento</label>
+    <select id="departamento" [value]="departamento()" (change)="setDepartamento($any($event.target).value)">
+      <option value="">Selecciona un departamento</option>
+      @for (row of departments(); track row.code) {
+        <option [value]="row.code">{{ row.name }}</option>
+      }
+    </select>
+    <label for="provincia">Provincia</label>
+    <select id="provincia" [disabled]="!departamento()" [value]="provincia()" (change)="setProvincia($any($event.target).value)">
+      <option value="">Selecciona una provincia</option>
+      @for (row of provinces(); track row.code) {
+        <option [value]="row.code">{{ row.name }}</option>
+      }
+    </select>
+    <label for="distrito">Distrito</label>
+    <select id="distrito" [disabled]="!provincia()" [value]="distrito()" (change)="distrito.set($any($event.target).value)">
+      <option value="">Selecciona un distrito</option>
+      @for (row of districts(); track row.code) {
+        <option [value]="row.code">{{ row.name }}</option>
+      }
+    </select>
+    <button type="submit" [disabled]="!distrito()">Ver candidaturas</button>
+    @if (error()) {
+      <p class="error" role="alert">{{ error() }}</p>
+    }
+  </form>
+} @else {
+  <div class="composer jurisdiction">
+    <p>{{ label() }}</p>
+    <button type="button" class="button-secondary" (click)="changeDistrict()">Cambiar</button>
+  </div>
+
+  @if (loading()) {
+    <p class="muted">Cargando candidaturas…</p>
+  }
+  @if (error()) {
+    <p class="error" role="alert">{{ error() }}</p>
+  }
+  @if (!loading() && !rows().length && !error()) {
+    <p class="muted">Aún no hay candidaturas para este distrito.</p>
+  }
+  @if (contiendas().length) {
+    <div class="tabs" role="tablist" aria-label="Contiendas">
+      @for (contest of contiendas(); track contest.nombre) {
+        <button
+          type="button"
+          class="tab"
+          role="tab"
+          [attr.aria-selected]="(cargo() || contiendas()[0].nombre) === contest.nombre"
+          (click)="chooseCargo(contest.nombre)"
+        >
+          {{ contest.nombre }}
+        </button>
+      }
+    </div>
+    <div class="grid candidate-grid">
+      @for (row of visibles(); track row.id) {
+        <a class="panel card candidate-card" [routerLink]="['/candidatos', row.id]">
+          <span class="avatar">
+            @if (row.fotoUrl && !broken()[row.id]) {
+              <img class="portrait" [src]="row.fotoUrl" [alt]="row.nombre" (error)="markBroken(row.id)" />
+            } @else {
+              <span>{{ initials(row.nombre) }}</span>
+            }
+          </span>
+          <span class="candidate-copy">
+            <span class="eyebrow">{{ row.partido }}</span>
+            <h2>{{ row.nombre }}</h2>
+            <p>{{ row.cargo }}</p>
+          </span>
+        </a>
+      }
+    </div>
+  }
+}

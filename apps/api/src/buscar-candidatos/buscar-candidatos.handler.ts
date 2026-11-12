@@ -16,13 +16,16 @@ export class BuscarCandidatosHandler {
     const nameWhere = words.length > 0 ? { AND: words.map((word) => ({ OR: nameFilters(word) })) } : null;
     const base = { AND: [nameWhere, scope].filter((clause) => clause !== null) };
     const where = { AND: [...base.AND, ...filterClauses(filters)] };
+    const catalogo = words.length === 0 && Boolean(filters.distrito?.trim());
     const [total, rows, organizations, sexes] = await Promise.all([
       prisma.candidate.count({ where }),
       prisma.candidate.findMany({
         where,
         include: { list: { include: { organization: true } } },
-        orderBy: orderBy(filters.orden),
-        take: RESULT_LIMIT,
+        orderBy: catalogo
+          ? [{ cargoEleccion: "asc" }, { nombres: "asc" }, { apellidoPaterno: "asc" }, { apellidoMaterno: "asc" }]
+          : orderBy(filters.orden),
+        take: catalogo ? 240 : RESULT_LIMIT,
       }),
       prisma.organization.findMany({
         where: { lists: { some: { candidates: { some: base } } } },

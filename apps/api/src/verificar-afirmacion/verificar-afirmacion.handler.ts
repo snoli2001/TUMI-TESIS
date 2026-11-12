@@ -1,8 +1,8 @@
-import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
+import { Injectable, Logger, NotFoundException, OnModuleInit } from "@nestjs/common";
 import { MemorySaver } from "@langchain/langgraph";
 import { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
 import type { BaseCheckpointSaver } from "@langchain/langgraph-checkpoint";
-import type { FactCheckRequest, FactCheckResult, EntityRef } from "@tumi/contracts";
+import type { ClaimVerdict, FactCheckRequest, FactCheckResult, EntityRef, SourceRef } from "@tumi/contracts";
 import { factCheckResultSchema } from "@tumi/contracts";
 import { getPrisma } from "@tumi/database";
 import { DecisionsService } from "./decisiones/decisions.service";
@@ -10,14 +10,17 @@ import { JneSearchService } from "./evidencia/jne-search.service";
 import { VectorSearchService } from "./evidencia/vector-search.service";
 import { WebSearchService } from "./evidencia/web-search.service";
 import { buildGraph } from "./grafo/fact-check.graph";
-import { mejorCoincidencia, menciones, nombresEnTexto } from "./grafo/menciones";
+import { mejorCoincidencia, menciones, nombresAlInicio, nombresEnTexto } from "./grafo/menciones";
 import type { AgentDeps, StreamHooks, TumiState } from "./grafo/state";
+import { cargarFicha } from "./ficha/cargar";
+import { decidir, type FichaOficial, type Regla } from "./ficha/reglas";
 import { LlmService } from "./redaccion/llm.service";
 
 @Injectable()
 export class VerificarAfirmacionHandler implements OnModuleInit {
   private readonly logger = new Logger(VerificarAfirmacionHandler.name);
   private graph: ReturnType<typeof buildGraph> | null = null;
+  private checkpointer: BaseCheckpointSaver | null = null;
   checkpoint: "postgres" | "memory" = "memory";
 
   constructor(
@@ -29,12 +32,12 @@ export class VerificarAfirmacionHandler implements OnModuleInit {
   ) {}
 
   async onModuleInit(): Promise<void> {
-    const checkpointer = await this.openCheckpointer();
-    this.graph = buildGraph(this.deps(), checkpointer);
+    this.checkpointer = await this.openCheckpointer();
+    this.graph = buildGraph(this.deps(), this.checkpointer);
   }
 
   async execute(request: FactCheckRequest, hooks: StreamHooks): Promise<FactCheckResult> {
-    if (!this.graph) throw new Error("El grafo todavía no está listo");
+    if (!this.graph || !this.checkpointer) throw new Error("El grafo todavía no está listo");
     const prisma = getPrisma();
     const sessionId = normalizeSessionId(request.sessionId);
     await prisma.factSession.upsert({
@@ -42,6 +45,23 @@ export class VerificarAfirmacionHandler implements OnModuleInit {
       create: { id: sessionId },
       update: {},
     });
+
+    if (request.hojaVidaId) {
+      const ficha = await cargarFicha(request.hojaVidaId);
+      if (!ficha) throw new NotFoundException("Candidato no encontrado");
+      const regla = decidir(request.query, ficha);
+      if (regla) return this.guardar(sessionId, await this.desdeRegla(sessionId, request.query, ficha, regla, hooks));
+      const result = await buildGraph(this.deps(ficha), this.checkpointer).invoke(
+        {
+          query: request.query,
+          sessionId,
+          consultaId: sessionId,
+          degraded: !this.decisions.enabled(),
+        },
+        { configurable: { thread_id: sessionId, hooks } },
+      );
+      return this.guardar(sessionId, this.desdeGrafo(sessionId, request.query, result));
+    }
 
     const result = await this.graph.invoke(
       {
@@ -52,19 +72,108 @@ export class VerificarAfirmacionHandler implements OnModuleInit {
       },
       { configurable: { thread_id: sessionId, hooks } },
     );
+    return this.guardar(sessionId, this.desdeGrafo(sessionId, request.query, result));
+  }
 
-    const payload: FactCheckResult = factCheckResultSchema.parse({
+  private async desdeRegla(
+    sessionId: string,
+    query: string,
+    ficha: FichaOficial,
+    regla: Regla,
+    hooks: StreamHooks,
+  ): Promise<FactCheckResult> {
+    const entity = entidadDe(ficha);
+    if (regla.tipo === "fuera") {
+      hooks.onToken(regla.mensaje);
+      return this.resultado(sessionId, query, regla.mensaje, "no_verificable", null, [], [entity]);
+    }
+    const source = fuenteDe(ficha, regla);
+    const verdict: ClaimVerdict = {
+      claim: query,
+      verdict: regla.verdict,
+      confidence: regla.confianza,
+      degraded: false,
+      explanation: "",
+      decisions: [],
+      sources: [source],
+    };
+    const state: TumiState = {
+      query,
+      sessionId,
+      consultaId: sessionId,
+      entities: [entity],
+      claims: [query],
+      evidence: [source],
+      verdicts: [verdict],
+      conclusion: "",
+      degraded: false,
+    };
+    hooks.onNode("explicacion", "start");
+    let conclusion = regla.explicacion;
+    if (this.llm.enabled()) {
+      try {
+        conclusion = await this.llm.explain(state, hooks.onToken);
+      } catch (error) {
+        this.logger.warn(`El redactor no explicó la regla: ${error instanceof Error ? error.message : error}`);
+        hooks.onToken(conclusion);
+      }
+    } else {
+      hooks.onToken(conclusion);
+    }
+    hooks.onNode("explicacion", "done");
+    return this.resultado(sessionId, query, conclusion, regla.verdict, regla.confianza, [source], [entity]);
+  }
+
+  private desdeGrafo(
+    sessionId: string,
+    query: string,
+    result: TumiState,
+  ): FactCheckResult {
+    return factCheckResultSchema.parse({
       id: sessionId,
       sessionId,
-      query: request.query,
+      query,
       conclusion: result.conclusion,
       degraded: result.degraded,
       verdicts: result.verdicts,
       sources: uniqueSources(result),
       entities: result.entities,
     });
+  }
 
-    const turn = await prisma.factTurn.create({
+  private resultado(
+    sessionId: string,
+    query: string,
+    conclusion: string,
+    verdict: ClaimVerdict["verdict"],
+    confidence: number | null,
+    sources: SourceRef[],
+    entities: EntityRef[],
+  ): FactCheckResult {
+    return factCheckResultSchema.parse({
+      id: sessionId,
+      sessionId,
+      query,
+      conclusion,
+      degraded: false,
+      verdicts: [
+        {
+          claim: query,
+          verdict,
+          confidence,
+          degraded: false,
+          explanation: "",
+          decisions: [],
+          sources,
+        },
+      ],
+      sources,
+      entities,
+    });
+  }
+
+  private async guardar(sessionId: string, payload: FactCheckResult): Promise<FactCheckResult> {
+    const turn = await getPrisma().factTurn.create({
       data: {
         sessionId,
         role: "assistant",
@@ -74,7 +183,7 @@ export class VerificarAfirmacionHandler implements OnModuleInit {
         sources: JSON.parse(JSON.stringify(payload)),
         choices: JSON.parse(
           JSON.stringify(
-            result.verdicts.map((verdict) => ({
+            payload.verdicts.map((verdict) => ({
               claim: verdict.claim,
               decisions: verdict.decisions,
             })),
@@ -85,18 +194,24 @@ export class VerificarAfirmacionHandler implements OnModuleInit {
     return { ...payload, id: turn.id.toString() };
   }
 
-  private deps(): AgentDeps {
+  private deps(ficha?: FichaOficial): AgentDeps {
+    const elegido = ficha ? entidadDe(ficha) : null;
     return {
       decisionsEnabled: () => this.decisions.enabled(),
-      searchCandidates: (query) => this.buscarPorMencion(query),
+      searchCandidates: (query) => (elegido ? Promise.resolve([elegido]) : this.buscarPorMencion(query)),
       chooseCandidate: (query, entities) => this.decisions.chooseCandidate(query, entities),
       extractClaims: (query) => this.llm.extractClaims(query),
       searchEvidence: async (query, claims, entities, sessionId) => {
         const text = [query, ...claims].join(" ");
-        const codigoExpedientes = await this.vectors.expedientesDe(entities.map((entity) => entity.id));
+        const codigoExpedientes = ficha
+          ? [ficha.codigoExpediente ?? "__sin_expediente__"]
+          : await this.vectors.expedientesDe(entities.map((entity) => entity.id));
+        const webQuery = ficha
+          ? `${ficha.nombre} elecciones regionales y municipales 2026 ${text}`
+          : text;
         const [local, remote] = await Promise.all([
           this.vectors.search(text, { codigoExpedientes, sessionId }),
-          this.web.search(text),
+          this.web.search(webQuery),
         ]);
         return [...local, ...remote];
       },
@@ -109,14 +224,15 @@ export class VerificarAfirmacionHandler implements OnModuleInit {
   }
 
   private async buscarPorMencion(query: string): Promise<TumiState["entities"]> {
-    const alias = menciones(query);
-    const direct = await this.jne.searchByNames(alias);
-    if (direct.length > 0) return marcarApodo(direct, alias);
-    if (alias.length === 0) return this.jne.search(query);
-    const pages = await this.web.search(`${alias.join(" ")} apodo candidato elecciones Perú`);
+    const pista = menciones(query);
+    const nombre = pista.length > 0 ? pista : nombresAlInicio(query);
+    const direct = await this.jne.searchByNames(nombre);
+    if (direct.length > 0) return marcarApodo(direct, pista);
+    if (nombre.length === 0) return this.jne.search(query);
+    const pages = await this.web.search(`${nombre.join(" ")} apodo candidato elecciones Perú`);
     const guesses = nombresEnTexto(
       pages.map((page) => `${page.title}. ${page.snippet}`).join("\n"),
-      alias,
+      nombre,
     );
     const hits: Array<{ entity: TumiState["entities"][number]; tokens: string[] }> = [];
     for (const guess of guesses) {
@@ -127,9 +243,9 @@ export class VerificarAfirmacionHandler implements OnModuleInit {
     }
     const linked = mejorCoincidencia(hits).slice(0, 8);
     this.logger.log(
-      `Apodo ${alias.join(", ")} vinculado a ${linked.map((entity) => entity.nombre).join("; ") || "nadie en el padrón"}`,
+      `Apodo ${nombre.join(", ")} vinculado a ${linked.map((entity) => entity.nombre).join("; ") || "nadie en el padrón"}`,
     );
-    return marcarApodo(linked, alias);
+    return marcarApodo(linked, pista);
   }
 
   private async openCheckpointer(): Promise<BaseCheckpointSaver> {
@@ -191,4 +307,29 @@ function uniqueSources(state: TumiState) {
     pagina,
     codigoExpediente,
   }));
+}
+
+function entidadDe(ficha: FichaOficial): EntityRef {
+  return {
+    id: ficha.id,
+    nombre: ficha.nombre,
+    cargo: ficha.cargo,
+    partido: ficha.partido,
+    fotoUrl: ficha.fotoUrl,
+    alias: null,
+  };
+}
+
+function fuenteDe(ficha: FichaOficial, regla: Extract<Regla, { tipo: "veredicto" }>): SourceRef {
+  return {
+    id: `ficha-${ficha.id}`,
+    title: regla.fuente.titulo,
+    url: null,
+    snippet: regla.fuente.snippet,
+    origin: regla.fuente.origin,
+    role: "prueba",
+    stance: null,
+    pagina: null,
+    codigoExpediente: ficha.codigoExpediente,
+  };
 }

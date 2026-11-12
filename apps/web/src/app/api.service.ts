@@ -56,8 +56,13 @@ export class ApiService {
     return this.http.get<HistoryItem[]>("/api/history", { params: { sessionId } });
   }
 
-  streamFactCheck(query: string, sessionId: string, onEvent: (event: StreamEvent) => void) {
-    return streamPost("/api/fact-check/stream", { query, sessionId }, onEvent);
+  streamFactCheck(
+    query: string,
+    sessionId: string,
+    onEvent: (event: StreamEvent) => void,
+    hojaVidaId?: string,
+  ) {
+    return streamPost("/api/fact-check/stream", { query, sessionId, hojaVidaId }, onEvent);
   }
 
   streamVideo(

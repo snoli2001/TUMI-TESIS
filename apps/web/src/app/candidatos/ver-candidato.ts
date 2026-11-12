@@ -2,10 +2,11 @@ import { Component, inject, signal } from "@angular/core";
 import { ActivatedRoute, RouterLink } from "@angular/router";
 import type { CandidateProfile, HojaVidaInmueble, HojaVidaVehiculo, PlanPropuesta } from "@tumi/contracts";
 import { ApiService } from "../api.service";
+import { VerificarCandidato } from "./verificar-candidato";
 
 @Component({
   selector: "app-candidate-detail",
-  imports: [RouterLink],
+  imports: [RouterLink, VerificarCandidato],
   templateUrl: "./ver-candidato.html",
 })
 export class VerCandidatoPage {
@@ -13,7 +14,7 @@ export class VerCandidatoPage {
   private readonly route = inject(ActivatedRoute);
   profile = signal<CandidateProfile | null>(null);
   error = signal("");
-  tab = signal<"hoja" | "plan">("hoja");
+  tab = signal<"hoja" | "plan" | "verificar">("hoja");
   photoBroken = signal(false);
   logoBroken = signal(false);
 

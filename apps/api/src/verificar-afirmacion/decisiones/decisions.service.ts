@@ -133,15 +133,15 @@ export class DecisionsService {
           type: "choice",
           name: "veredicto",
           instructions:
-            "Clasifica el claim solo con la evidencia adjunta. Esa evidencia es de medios, del padrón o del plan. Si no alcanza, elige no_verificable.",
+            "Clasifica el claim solo con la evidencia adjunta. Una nota que no menciona el hecho no es evidencia. Si el claim atribuye un delito, solo es verdadero cuando una fuente de prueba cita una condena firme por ese hecho. Si ninguna fuente de prueba registra esa condena, elige falso: la afirmación no está acreditada. Elige no_verificable solo si una fuente de prueba describe un proceso judicial todavía abierto.",
           choices: [
             {
               value: "verdadero",
-              description: "La evidencia respalda el claim de forma directa.",
+              description: "Una fuente de prueba cita una condena firme o respalda el claim de forma directa.",
             },
             {
               value: "falso",
-              description: "La evidencia niega el claim de forma directa.",
+              description: "Ninguna fuente de prueba acredita el claim, o una fuente de prueba lo niega.",
             },
             {
               value: "enganoso",
@@ -149,7 +149,7 @@ export class DecisionsService {
             },
             {
               value: "no_verificable",
-              description: "La evidencia no alcanza para sostener ni negar el claim.",
+              description: "Una fuente de prueba muestra un proceso abierto, sin condena ni desmentido.",
             },
           ],
         },

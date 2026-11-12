@@ -102,6 +102,7 @@ export const factCheckResultSchema: z.ZodType<FactCheckResult> = z.object({
 export const factCheckRequestSchema: z.ZodType<FactCheckRequest> = z.object({
   query: z.string().trim().min(3).max(2000),
   sessionId: z.string().trim().min(1).max(80).optional(),
+  hojaVidaId: z.string().trim().min(1).max(160).optional(),
 });
 
 const sessionId = z.string().trim().min(1).max(80).optional();

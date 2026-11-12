@@ -90,6 +90,7 @@ export interface FactCheckResult {
 export interface FactCheckRequest {
   query: string;
   sessionId?: string;
+  hojaVidaId?: string;
 }
 
 export interface VideoSegmento {
