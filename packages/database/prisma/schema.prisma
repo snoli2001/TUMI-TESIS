@@ -19,10 +19,40 @@ model Organization {
   @@schema("tumi")
 }
 
+model Department {
+  code String @id
+  name String
+
+  @@map("departments")
+  @@schema("tumi")
+}
+
+model Province {
+  code           String @id
+  name           String
+  departmentCode String @map("department_code")
+
+  @@map("provinces")
+  @@schema("tumi")
+}
+
+model District {
+  code           String @id
+  name           String
+  provinceCode   String @map("province_code")
+  departmentCode String @map("department_code")
+
+  @@map("districts")
+  @@schema("tumi")
+}
+
 model ElectionList {
   sourceId             String       @id @map("source_id")
   codigoExpediente     String       @map("codigo_expediente")
   organizationSourceId String       @map("organization_source_id")
+  departmentCode       String?      @map("department_code")
+  provinceCode         String?      @map("province_code")
+  districtCode         String?      @map("district_code")
   organization         Organization @relation(fields: [organizationSourceId], references: [sourceId])
   plan                 Plan?        @relation(fields: [codigoExpediente], references: [codigoExpediente])
   candidates           Candidate[]

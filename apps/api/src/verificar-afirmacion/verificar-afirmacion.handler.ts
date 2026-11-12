@@ -2,7 +2,7 @@ import { Injectable, Logger, OnModuleInit } from "@nestjs/common";
 import { MemorySaver } from "@langchain/langgraph";
 import { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
 import type { BaseCheckpointSaver } from "@langchain/langgraph-checkpoint";
-import type { FactCheckRequest, FactCheckResult } from "@tumi/contracts";
+import type { FactCheckRequest, FactCheckResult, EntityRef } from "@tumi/contracts";
 import { factCheckResultSchema } from "@tumi/contracts";
 import { getPrisma } from "@tumi/database";
 import { DecisionsService } from "./decisiones/decisions.service";
@@ -101,6 +101,7 @@ export class VerificarAfirmacionHandler implements OnModuleInit {
         return [...local, ...remote];
       },
       rerank: (claims, evidence) => this.decisions.rerank(claims, evidence),
+      clasificarCirculacion: (claims, evidence) => this.decisions.clasificarCirculacion(claims, evidence),
       judgeClaim: (claim, evidence, entities) =>
         this.decisions.judgeClaim(claim, evidence, entities),
       explain: (state, onToken) => this.llm.explain(state, onToken),
@@ -110,7 +111,7 @@ export class VerificarAfirmacionHandler implements OnModuleInit {
   private async buscarPorMencion(query: string): Promise<TumiState["entities"]> {
     const alias = menciones(query);
     const direct = await this.jne.searchByNames(alias);
-    if (direct.length > 0) return direct;
+    if (direct.length > 0) return marcarApodo(direct, alias);
     if (alias.length === 0) return this.jne.search(query);
     const pages = await this.web.search(`${alias.join(" ")} apodo candidato elecciones Perú`);
     const guesses = nombresEnTexto(
@@ -128,7 +129,7 @@ export class VerificarAfirmacionHandler implements OnModuleInit {
     this.logger.log(
       `Apodo ${alias.join(", ")} vinculado a ${linked.map((entity) => entity.nombre).join("; ") || "nadie en el padrón"}`,
     );
-    return linked;
+    return marcarApodo(linked, alias);
   }
 
   private async openCheckpointer(): Promise<BaseCheckpointSaver> {
@@ -156,14 +157,38 @@ function normalizeSessionId(value: string | undefined): string {
   return crypto.randomUUID();
 }
 
+function marcarApodo(entities: EntityRef[], alias: string[]): EntityRef[] {
+  return entities.map((entity) => ({
+    ...entity,
+    alias: apodoFueraDelNombre(alias, entity.nombre),
+  }));
+}
+
+function apodoFueraDelNombre(alias: string[], nombre: string): string | null {
+  const plano = plegar(nombre);
+  const fuera = alias.filter((word) => !plano.includes(plegar(word)));
+  return fuera.length > 0 ? fuera.join(" ") : null;
+}
+
+function plegar(value: string): string {
+  return value
+    .toLocaleLowerCase("es")
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "");
+}
+
 function uniqueSources(state: TumiState) {
   const map = new Map<string, TumiState["evidence"][number]>();
   for (const item of state.evidence) map.set(item.id, item);
-  return [...map.values()].map(({ id, title, url, snippet, origin }) => ({
+  return [...map.values()].map(({ id, title, url, snippet, origin, role, stance, pagina, codigoExpediente }) => ({
     id,
     title,
     url,
     snippet,
     origin,
+    role,
+    stance,
+    pagina,
+    codigoExpediente,
   }));
 }

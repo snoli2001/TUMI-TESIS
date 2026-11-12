@@ -2,11 +2,19 @@
   <div>
     <header class="hero">
       <p class="eyebrow">Video</p>
-      <h1>Verifica una transcripción con marcas de tiempo.</h1>
-      <p class="lede">Una línea por afirmación. Ejemplo: [00:12] Prometió un tren al Callao.</p>
+      <h1>Contrasta lo que se dice en un video.</h1>
+      <p class="lede">Pega un enlace público de YouTube de hasta 4 minutos, o una transcripción con marcas de tiempo.</p>
     </header>
     <form class="composer" (submit)="$event.preventDefault(); submit()">
-      <label for="transcripcion">Transcripción</label>
+      <label for="url">URL de YouTube</label>
+      <input
+        id="url"
+        [value]="url()"
+        (input)="url.set($any($event.target).value)"
+        placeholder="https://www.youtube.com/watch?v="
+        inputmode="url"
+      />
+      <label for="transcripcion">O pega la transcripción</label>
       <textarea
         id="transcripcion"
         [value]="transcripcion()"
@@ -27,6 +35,16 @@
         }
       </ol>
     }
+    @if (marco(); as marco) {
+      <div class="video-frame">
+        <iframe
+          [src]="marco"
+          [title]="titulo() || 'Video de YouTube'"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen
+        ></iframe>
+      </div>
+    }
     @for (afirmacion of afirmaciones(); track afirmacion.id) {
       <article class="panel verdict-card">
         @if (afirmacion.inicioSeg !== null) {
@@ -36,16 +54,90 @@
               – {{ afirmacion.finSeg }}
             }
           </p>
+          @if (videoId()) {
+            <button type="button" class="segundo" (click)="ir(afirmacion.inicioSeg)">Ver este segundo</button>
+          }
         }
         <p class="verdict" [attr.data-verdict]="afirmacion.verdicts[0]?.verdict">{{ afirmacion.verdicts[0]?.verdict?.replace("_", " ") }}</p>
-        <p>{{ afirmacion.query }}</p>
+        <div class="cita">
+          <div>
+            <p class="eyebrow">Afirmación</p>
+            <p>{{ afirmacion.verdicts[0]?.claim || afirmacion.query }}</p>
+          </div>
+          @if (cita(afirmacion.sources); as fuente) {
+            <div>
+              <p class="eyebrow">Plan de gobierno</p>
+              <p>{{ fuente.snippet }}</p>
+              <p class="muted">
+                @if (fuente.codigoExpediente) {
+                  {{ fuente.codigoExpediente }}
+                }
+                @if (fuente.pagina !== null) {
+                  · página {{ fuente.pagina }}
+                }
+              </p>
+              @if (fuente.url) {
+                <a [href]="fuente.url" target="_blank" rel="noreferrer">Abrir esta página</a>
+              }
+            </div>
+          }
+        </div>
         @for (persona of afirmacion.entities; track persona.id) {
           <p class="identidad">
-            Se refiere a <strong>{{ persona.nombre }}</strong>
-            <span class="muted">{{ persona.cargo }} · {{ persona.partido }}</span>
+            @if (persona.fotoUrl) {
+              <img class="portrait" [src]="persona.fotoUrl" [alt]="persona.nombre" />
+            }
+            <span>
+              @if (persona.alias) {
+                El apodo «{{ persona.alias }}» corresponde a <strong>{{ persona.nombre }}</strong>
+              } @else {
+                Se refiere a <strong>{{ persona.nombre }}</strong>
+              }
+              <span class="muted">{{ persona.cargo }} · {{ persona.partido }}</span>
+            </span>
           </p>
         }
+        @if (afirmacion.verdicts[0]; as verdict) {
+          @if (lectura(verdict); as clasificador) {
+            @if (clasificador.respalda !== null) {
+              <p class="muted">Respalda {{ (clasificador.respalda * 100).toFixed(0) }}%</p>
+              <div class="bar"><span [style.width.%]="clasificador.respalda * 100"></span></div>
+            }
+            @if (clasificador.niega !== null) {
+              <p class="muted">Niega {{ (clasificador.niega * 100).toFixed(0) }}%</p>
+              <div class="bar"><span [style.width.%]="clasificador.niega * 100"></span></div>
+            }
+            @if (clasificador.solidez !== null) {
+              <p class="muted">Solidez @if (clasificador.solidezTexto) { {{ clasificador.solidezTexto }} }</p>
+              <div class="bar"><span [style.width.%]="clasificador.solidez * 100"></span></div>
+            }
+          }
+        }
         <div class="prose" [innerHTML]="formato(afirmacion.conclusion)"></div>
+        @if (prueba(afirmacion.sources).length) {
+          <h3>Fuentes</h3>
+          @for (source of prueba(afirmacion.sources); track source.id) {
+            <p>
+              <strong>{{ source.title }}</strong>
+              <span class="muted"> · {{ etiquetaOrigen(source.origin) }}</span>
+              @if (source.url) {
+                <a [href]="source.url" target="_blank" rel="noreferrer">Abrir</a>
+              }
+            </p>
+          }
+        }
+        @if (contraste(afirmacion.sources).length) {
+          <h3>Circula también</h3>
+          @for (source of contraste(afirmacion.sources); track source.id) {
+            <p>
+              <strong>{{ source.title }}</strong>
+              <span class="postura"> · {{ etiquetaPostura(source.stance) }}</span>
+              @if (source.url) {
+                <a [href]="source.url" target="_blank" rel="noreferrer">Abrir</a>
+              }
+            </p>
+          }
+        }
       </article>
     }
   </div>

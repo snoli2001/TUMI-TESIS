@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
 import { BuscarCandidatosController } from "./buscar-candidatos/buscar-candidatos.controller";
 import { BuscarCandidatosHandler } from "./buscar-candidatos/buscar-candidatos.handler";
+import { GeoController } from "./geo/geo.controller";
 import { AuthGuard } from "./compartido/auth/auth.guard";
 import { RateLimitGuard } from "./compartido/rate-limit/rate-limit.guard";
 import { RedisService } from "./compartido/redis/redis.service";
@@ -19,6 +20,7 @@ import { VerificarAfirmacionController } from "./verificar-afirmacion/verificar-
 import { VerificarAfirmacionHandler } from "./verificar-afirmacion/verificar-afirmacion.handler";
 import { VerificarVideoController } from "./verificar-video/verificar-video.controller";
 import { VerificarVideoHandler } from "./verificar-video/verificar-video.handler";
+import { ColaVideo } from "./verificar-video/cola-video";
 
 @Module({
   controllers: [
@@ -26,6 +28,7 @@ import { VerificarVideoHandler } from "./verificar-video/verificar-video.handler
     VerificarAfirmacionController,
     VerificarVideoController,
     BuscarCandidatosController,
+    GeoController,
     VerCandidatoController,
     ConsultarHistorialController,
   ],
@@ -37,6 +40,7 @@ import { VerificarVideoHandler } from "./verificar-video/verificar-video.handler
     VectorSearchService,
     WebSearchService,
     VerificarAfirmacionHandler,
+    ColaVideo,
     VerificarVideoHandler,
     BuscarCandidatosHandler,
     VerCandidatoHandler,

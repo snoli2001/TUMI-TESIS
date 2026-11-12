@@ -5,5 +5,9 @@
     "rootDir": "src",
     "types": ["node"]
   },
-  "include": ["src/verificar-afirmacion/grafo/**/*.ts"]
+  "include": [
+    "src/verificar-afirmacion/grafo/**/*.ts",
+    "src/verificar-afirmacion/evidencia/medios.ts",
+    "src/verificar-afirmacion/evidencia/medios.test.ts"
+  ]
 }

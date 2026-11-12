@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/commo
 import { Queue, Worker } from "bullmq";
 import Redis from "ioredis";
 import { indexNextBatch } from "./plan-index";
+import { transcribirYoutube } from "./transcribir-youtube";
 
 const QUEUE = "tumi-jobs";
 
@@ -39,8 +40,12 @@ export class IngestService implements OnModuleInit, OnModuleDestroy {
     for (const connection of this.connections) connection.disconnect();
   }
 
-  private async handle(name: string, data: unknown): Promise<void> {
-    if (name !== "indexar-planes") return;
+  private async handle(name: string, data: unknown): Promise<unknown> {
+    if (name === "transcribir-youtube") {
+      const url = isRecord(data) && typeof data.url === "string" ? data.url : "";
+      return transcribirYoutube(url);
+    }
+    if (name !== "indexar-planes") return undefined;
     const after = isRecord(data) && typeof data.after === "string" ? data.after : undefined;
     const batch = await indexNextBatch(after);
     this.logger.log(

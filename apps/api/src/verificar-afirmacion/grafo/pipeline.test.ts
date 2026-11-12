@@ -10,6 +10,8 @@ const aurora: EntityRef = {
   nombre: "Aurora Quispe Demo",
   cargo: "Presidencia",
   partido: "Movimiento Demostración del Sol",
+  fotoUrl: null,
+  alias: "Porky",
 };
 
 const evidence: EvidenceItem = {
@@ -18,6 +20,10 @@ const evidence: EvidenceItem = {
   url: null,
   snippet: "El plan promete un tren eléctrico Lima–Callao en cuatro años.",
   origin: "jne",
+  role: "prueba",
+  stance: null,
+  pagina: 4,
+  codigoExpediente: "ERM.DEMO",
   candidatoId: "demo-aurora",
 };
 
@@ -31,6 +37,7 @@ function degradedDeps(): AgentDeps {
     extractClaims: async (query) => [query],
     searchEvidence: async () => [evidence],
     rerank: async (_claims, items) => items,
+    clasificarCirculacion: async (_claims, items) => items,
     judgeClaim: async () => ({
       verdict: "no_verificable",
       confidence: null,

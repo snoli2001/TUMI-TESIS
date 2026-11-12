@@ -33,4 +33,9 @@ EXPOSE 3000
 CMD ["node", "apps/api/dist/main.js"]
 
 FROM runtime AS worker
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 ffmpeg curl \
+  && curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp \
+  && chmod a+x /usr/local/bin/yt-dlp \
+  && rm -rf /var/lib/apt/lists/*
 CMD ["node", "apps/worker/dist/main.js"]

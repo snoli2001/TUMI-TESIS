@@ -47,7 +47,7 @@ export class LlmService {
       });
       const stream = await model.stream([
         new SystemMessage(
-          "Redacta en español una explicación breve para un ciudadano. Los veredictos ya están decididos y no puedes cambiarlos. Si hay entidades, la primera oración debe decir a quién se refiere la consulta: si usa un apodo, escribe que ese apodo corresponde a esa persona e incluye cargo y partido. Separa los argumentos en párrafos cortos y viñetas que empiecen con '- '. Usa **negrita** solo para el veredicto. Cita las fuentes por título. Si el resultado está degradado, dilo.",
+          "Redacta en español una explicación breve para un ciudadano. Los veredictos ya están decididos y no puedes cambiarlos. Solo las fuentes con rol prueba sostienen el veredicto: padrón, plan y medios de comunicación. Las de rol contraste, como redes, blogs o Wikipedia, no son prueba. Menciónalas en un párrafo aparte para decir si la afirmación circula y si esa página la afirma o la desacredita. Si hay entidades, la primera oración debe decir a quién se refiere la consulta: si usa un apodo, escribe que ese apodo corresponde a esa persona e incluye cargo y partido. Separa los argumentos en párrafos cortos y viñetas que empiecen con '- '. Usa **negrita** solo para el veredicto. Cita las fuentes de prueba por título. Si el resultado está degradado, dilo.",
         ),
         new HumanMessage(
           JSON.stringify({
@@ -62,6 +62,8 @@ export class LlmService {
             fuentes: state.evidence.map((item) => ({
               titulo: item.title,
               origen: item.origin,
+              rol: item.role,
+              postura: item.stance,
               texto: item.snippet,
             })),
           }),
@@ -109,17 +111,21 @@ function origenEnEspanol(origin: string): string {
 
 function degradedConclusion(state: TumiState): string {
   const claims = state.claims.map((claim) => `- ${claim}`).join("\n");
-  const sources = [...new Map(state.evidence.map((item) => [item.title, item])).values()]
-    .map((item) => `- ${item.title} (${origenEnEspanol(item.origin)})`)
-    .join("\n");
+  const prueba = state.evidence.filter((item) => item.role !== "contraste");
+  const contraste = state.evidence.filter((item) => item.role === "contraste");
+  const lista = (items: TumiState["evidence"]) =>
+    items.map((item) => `- ${item.title} (${origenEnEspanol(item.origin)})`).join("\n");
   return [
     "Esta respuesta es de demostración: sin clave de OpenAI, TUMI no asigna un veredicto ni probabilidades.",
     "",
     "Afirmaciones detectadas:",
     claims || "- (ninguna)",
     "",
-    "Fuentes locales, etiquetadas como datos de demostración:",
-    sources || "- (ninguna)",
+    "Fuentes que podrían verificar, sin usarlas todavía:",
+    lista(prueba) || "- (ninguna)",
+    "",
+    "Páginas donde circula, que no verifican:",
+    lista(contraste) || "- (ninguna)",
     "",
     "Cada afirmación queda como no verificable.",
   ].join("\n");

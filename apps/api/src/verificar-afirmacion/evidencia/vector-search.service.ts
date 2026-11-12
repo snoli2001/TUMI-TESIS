@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { Injectable, Logger } from "@nestjs/common";
 import { QdrantClient } from "@qdrant/js-client-rest";
-import { getPrisma } from "@tumi/database";
+import { getPrisma, mediaUrl } from "@tumi/database";
 import OpenAI from "openai";
 import { tokens } from "../../compartido/texto";
 import type { EvidenceItem } from "../grafo/state";
@@ -61,7 +61,23 @@ export class VectorSearchService {
     const semantic = await this.searchQdrant(query, scope);
     const merged = new Map<string, EvidenceItem>();
     for (const item of [...semantic, ...lexical]) merged.set(item.id, item);
-    return [...merged.values()].slice(0, 12);
+    return this.conEnlace([...merged.values()].slice(0, 12));
+  }
+
+  private async conEnlace(items: EvidenceItem[]): Promise<EvidenceItem[]> {
+    const codigos = [...new Set(items.flatMap((item) => (item.codigoExpediente ? [item.codigoExpediente] : [])))];
+    if (codigos.length === 0) return items;
+    const plans = await getPrisma().plan.findMany({
+      where: { codigoExpediente: { in: codigos } },
+      select: { codigoExpediente: true, summaryPdfR2Key: true, summaryPdfSourceUrl: true },
+    });
+    const bases = new Map(
+      plans.map((plan) => [plan.codigoExpediente, mediaUrl(plan.summaryPdfR2Key) ?? plan.summaryPdfSourceUrl]),
+    );
+    return items.map((item) => {
+      const base = item.codigoExpediente ? bases.get(item.codigoExpediente) ?? item.url : item.url;
+      return { ...item, url: conPagina(base, item.pagina) };
+    });
   }
 
   async healthy(): Promise<boolean> {
@@ -134,6 +150,10 @@ export class VectorSearchService {
           url: null,
           snippet,
           origin: "jne" as const,
+          role: "prueba" as const,
+          stance: null,
+          pagina: null,
+          codigoExpediente: proposal.dimension.codigoExpediente,
         },
       ];
     });
@@ -177,8 +197,18 @@ function toEvidence(payload: Record<string, unknown>, fallbackId: string): Evide
       url: typeof payload.url === "string" ? payload.url : null,
       snippet,
       origin: "qdrant",
+      role: "prueba",
+      stance: null,
+      pagina,
+      codigoExpediente: typeof payload.codigoExpediente === "string" ? payload.codigoExpediente : null,
     },
   ];
+}
+
+function conPagina(url: string | null | undefined, pagina: number | null): string | null {
+  if (!url) return null;
+  const limpia = url.split("#")[0];
+  return pagina ? `${limpia}#page=${pagina}` : limpia;
 }
 
 export function openQdrant(): QdrantClient {

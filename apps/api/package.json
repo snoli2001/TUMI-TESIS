@@ -6,7 +6,7 @@
     "dev": "nest start --watch",
     "build": "nest build",
     "start": "node dist/main.js",
-    "test": "tsc -p tsconfig.spec.json && node --test dist-test/verificar-afirmacion/grafo/pipeline.test.js dist-test/verificar-afirmacion/grafo/menciones.test.js"
+    "test": "tsc -p tsconfig.spec.json && node --test dist-test/verificar-afirmacion/grafo/pipeline.test.js dist-test/verificar-afirmacion/grafo/menciones.test.js dist-test/verificar-afirmacion/evidencia/medios.test.js"
   },
   "dependencies": {
     "@langchain/core": "^1.1.16",
@@ -21,6 +21,7 @@
     "@tavily/core": "^0.7.14",
     "@tumi/contracts": "workspace:*",
     "@tumi/database": "workspace:*",
+    "bullmq": "^5.61.0",
     "ioredis": "^5.8.2",
     "openai": "^7.43.0",
     "reflect-metadata": "^0.2.2",

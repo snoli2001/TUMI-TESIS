@@ -5,6 +5,7 @@ import type {
   CandidateSearchFilters,
   CandidateSearchResult,
   FactCheckResult,
+  GeoItem,
   HistoryItem,
 } from "@tumi/contracts";
 
@@ -18,7 +19,11 @@ export class ApiService {
   constructor(private readonly http: HttpClient) {}
 
   candidates(q: string, filters: CandidateSearchFilters = {}) {
-    const params: Record<string, string> = { q };
+    const params: Record<string, string> = {};
+    if (q.trim()) params["q"] = q.trim();
+    if (filters.departamento) params["departamento"] = filters.departamento;
+    if (filters.provincia) params["provincia"] = filters.provincia;
+    if (filters.distrito) params["distrito"] = filters.distrito;
     if (filters.organizacion) params["organizacion"] = filters.organizacion;
     if (filters.sexo) params["sexo"] = filters.sexo;
     if (filters.orden === "organizacion") params["orden"] = "organizacion";
@@ -29,6 +34,18 @@ export class ApiService {
     if (filters.superiores) params["superiores"] = "true";
     if (filters.trabajo) params["trabajo"] = "true";
     return this.http.get<CandidateSearchResult>("/api/candidates", { params });
+  }
+
+  departments() {
+    return this.http.get<GeoItem[]>("/api/geo/departments");
+  }
+
+  provinces(departmentCode: string) {
+    return this.http.get<GeoItem[]>("/api/geo/provinces", { params: { departmentCode } });
+  }
+
+  districts(provinceCode: string) {
+    return this.http.get<GeoItem[]>("/api/geo/districts", { params: { provinceCode } });
   }
 
   candidate(id: string) {
@@ -43,8 +60,12 @@ export class ApiService {
     return streamPost("/api/fact-check/stream", { query, sessionId }, onEvent);
   }
 
-  streamVideo(transcripcion: string, sessionId: string, onEvent: (event: StreamEvent) => void) {
-    return streamPost("/api/verificar-video/stream", { transcripcion, sessionId }, onEvent);
+  streamVideo(
+    entrada: { url?: string; transcripcion?: string },
+    sessionId: string,
+    onEvent: (event: StreamEvent) => void,
+  ) {
+    return streamPost("/api/verificar-video/stream", { ...entrada, sessionId }, onEvent);
   }
 }
 

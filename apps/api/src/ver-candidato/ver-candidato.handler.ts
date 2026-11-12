@@ -5,7 +5,7 @@ import type {
   HojaVidaSentencia,
   PlanGobierno,
 } from "@tumi/contracts";
-import { getPrisma, publicAssetUrl } from "@tumi/database";
+import { getPrisma, mediaUrl } from "@tumi/database";
 
 @Injectable()
 export class VerCandidatoHandler {
@@ -48,8 +48,8 @@ export class VerCandidatoHandler {
       cargo: row.cargoEleccion,
       partido: row.list.organization.name,
       sigla: null,
-      fotoUrl: publicAssetUrl(row.photoR2Key) ?? row.photoSourceUrl,
-      logoUrl: publicAssetUrl(row.list.organization.logoR2Key) ?? row.list.organization.logoSourceUrl,
+      fotoUrl: mediaUrl(row.photoR2Key) ?? row.photoSourceUrl,
+      logoUrl: mediaUrl(row.list.organization.logoR2Key) ?? row.list.organization.logoSourceUrl,
       demostracion: false,
       hojaVida: row.resume ? toHojaVida(row.resume) : null,
       plan: row.list.plan ? toPlan(row.list.plan) : null,
@@ -139,8 +139,8 @@ function toPlan(plan: {
   return {
     ideario: text(plan.ideario),
     vision: text(plan.vision),
-    pdfCompleto: publicAssetUrl(plan.fullPdfR2Key) ?? text(plan.fullPdfSourceUrl),
-    pdfResumen: publicAssetUrl(plan.summaryPdfR2Key) ?? text(plan.summaryPdfSourceUrl),
+    pdfCompleto: mediaUrl(plan.fullPdfR2Key) ?? text(plan.fullPdfSourceUrl),
+    pdfResumen: mediaUrl(plan.summaryPdfR2Key) ?? text(plan.summaryPdfSourceUrl),
     dimensiones: plan.dimensions.map((dimension) => ({
       id: dimension.id.toString(),
       nombre: dimension.name,

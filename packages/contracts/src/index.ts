@@ -1,6 +1,8 @@
 import { z } from "zod";
 import {
   SOURCE_ORIGINS,
+  SOURCE_ROLES,
+  SOURCE_STANCES,
   VERDICTS,
   type ClaimVerdict,
   type DecisionAnswer,
@@ -10,8 +12,10 @@ import {
   type SourceRef,
   type VerificarVideoRequest,
 } from "./verdict-policy.js";
+import { idDeYoutube } from "./youtube.js";
 
 export * from "./verdict-policy.js";
+export * from "./youtube.js";
 
 const probabilityValueSchema = z.object({
   value: z.string(),
@@ -59,6 +63,10 @@ export const sourceSchema: z.ZodType<SourceRef> = z.object({
   url: z.string().nullable(),
   snippet: z.string(),
   origin: z.enum(SOURCE_ORIGINS),
+  role: z.enum(SOURCE_ROLES),
+  stance: z.enum(SOURCE_STANCES).nullable(),
+  pagina: z.number().int().nullable(),
+  codigoExpediente: z.string().nullable(),
 });
 
 export const entitySchema: z.ZodType<EntityRef> = z.object({
@@ -66,6 +74,8 @@ export const entitySchema: z.ZodType<EntityRef> = z.object({
   nombre: z.string(),
   cargo: z.string(),
   partido: z.string(),
+  fotoUrl: z.string().nullable(),
+  alias: z.string().nullable(),
 });
 
 export const claimVerdictSchema: z.ZodType<ClaimVerdict> = z.object({
@@ -94,7 +104,35 @@ export const factCheckRequestSchema: z.ZodType<FactCheckRequest> = z.object({
   sessionId: z.string().trim().min(1).max(80).optional(),
 });
 
-export const verificarVideoRequestSchema: z.ZodType<VerificarVideoRequest> = z.object({
-  transcripcion: z.string().trim().min(3).max(20000),
-  sessionId: z.string().trim().min(1).max(80).optional(),
-});
+const sessionId = z.string().trim().min(1).max(80).optional();
+
+export const verificarVideoRequestSchema: z.ZodType<VerificarVideoRequest> = z
+  .object({
+    transcripcion: z.string().trim().max(20000).optional(),
+    url: z.string().trim().max(500).optional(),
+    sessionId,
+  })
+  .superRefine((value, context) => {
+    const texto = value.transcripcion?.trim() ?? "";
+    const url = value.url?.trim() ?? "";
+    if (!texto && !url) {
+      context.addIssue({
+        code: "custom",
+        message: "Pega una transcripción o una URL de YouTube",
+      });
+    }
+    if (!url && texto.length > 0 && texto.length < 3) {
+      context.addIssue({
+        code: "custom",
+        message: "La transcripción es demasiado corta",
+        path: ["transcripcion"],
+      });
+    }
+    if (url && !idDeYoutube(url)) {
+      context.addIssue({
+        code: "custom",
+        message: "La URL tiene que ser un video público de YouTube",
+        path: ["url"],
+      });
+    }
+  });

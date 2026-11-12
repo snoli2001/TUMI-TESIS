@@ -383,7 +383,8 @@ select:focus {
 
 .filters-dialog-head h2 { margin: 0; font-size: 1.35rem; }
 
-.filters-grid {
+.filters-grid,
+.geo-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
   gap: 0.75rem;

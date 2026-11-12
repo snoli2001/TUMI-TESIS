@@ -10,12 +10,22 @@ export type Verdict = (typeof VERDICTS)[number];
 export const SOURCE_ORIGINS = ["jne", "qdrant", "tavily"] as const;
 export type SourceOrigin = (typeof SOURCE_ORIGINS)[number];
 
+export const SOURCE_ROLES = ["prueba", "contraste"] as const;
+export type SourceRole = (typeof SOURCE_ROLES)[number];
+
+export const SOURCE_STANCES = ["afirma", "desacredita", "menciona"] as const;
+export type SourceStance = (typeof SOURCE_STANCES)[number];
+
 export interface SourceRef {
   id: string;
   title: string;
   url: string | null;
   snippet: string;
   origin: SourceOrigin;
+  role: SourceRole;
+  stance: SourceStance | null;
+  pagina: number | null;
+  codigoExpediente: string | null;
 }
 
 export interface EntityRef {
@@ -23,6 +33,8 @@ export interface EntityRef {
   nombre: string;
   cargo: string;
   partido: string;
+  fotoUrl: string | null;
+  alias: string | null;
 }
 
 export interface ProbabilityValue {
@@ -87,7 +99,8 @@ export interface VideoSegmento {
 }
 
 export interface VerificarVideoRequest {
-  transcripcion: string;
+  transcripcion?: string;
+  url?: string;
   sessionId?: string;
 }
 
@@ -98,6 +111,8 @@ export interface AfirmacionDeVideo extends FactCheckResult {
 
 export interface VerificarVideoResult {
   sessionId: string;
+  videoId: string | null;
+  titulo: string | null;
   afirmaciones: AfirmacionDeVideo[];
 }
 
@@ -211,7 +226,15 @@ export interface CandidateSearchResult {
   sexos: string[];
 }
 
+export interface GeoItem {
+  code: string;
+  name: string;
+}
+
 export interface CandidateSearchFilters {
+  departamento?: string;
+  provincia?: string;
+  distrito?: string;
   organizacion?: string;
   sexo?: string;
   orden?: "nombre" | "organizacion";

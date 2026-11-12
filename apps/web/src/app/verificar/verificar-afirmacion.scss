@@ -93,10 +93,36 @@ form {
   display: flex;
   flex-wrap: wrap;
   gap: 0.35rem 0.7rem;
-  align-items: baseline;
+  align-items: center;
   margin: 0 0 0.85rem;
   padding-bottom: 0.75rem;
   border-bottom: 1px solid var(--color-border);
+}
+
+.identidad .portrait {
+  width: 3.25rem;
+  height: 3.25rem;
+  object-fit: cover;
+  border-radius: 0.85rem;
+  background: #dbeafe;
+}
+
+.cita {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.85rem;
+  margin: 0.85rem 0;
+}
+
+.cita > div {
+  padding: 0.85rem;
+  border-radius: 1rem;
+  background: #f8fafc;
+}
+
+.cita a {
+  color: var(--color-primary);
+  font-weight: 600;
 }
 
 .identidad strong {
@@ -118,18 +144,53 @@ aside article:first-of-type {
   padding-top: 0;
 }
 
+h2.circula {
+  margin-top: 1.4rem;
+}
+
+.postura {
+  margin: 0.2rem 0 0.45rem;
+  color: var(--color-primary);
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
 aside a {
   color: var(--color-primary);
   font-weight: 600;
 }
 
-.error {
-  color: var(--color-destructive);
+.video-frame {
+  position: relative;
+  width: min(100%, 40rem);
+  aspect-ratio: 16 / 9;
+  margin: 1rem 0;
+  border-radius: 1.25rem;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  background: #0f172a;
+}
+
+.video-frame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+button.segundo {
+  background: transparent;
+  color: var(--color-primary);
+  min-height: 44px;
+  padding: 0 0.25rem;
+  border-radius: 0;
 }
 
 @media (max-width: 800px) {
   .layout { grid-template-columns: 1fr; }
   aside.panel { position: static; }
+  .cita { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {

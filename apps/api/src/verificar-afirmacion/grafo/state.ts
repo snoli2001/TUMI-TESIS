@@ -36,6 +36,7 @@ export interface AgentDeps {
     sessionId: string,
   ) => Promise<EvidenceItem[]>;
   rerank: (claims: string[], evidence: EvidenceItem[]) => Promise<EvidenceItem[]>;
+  clasificarCirculacion: (claims: string[], evidence: EvidenceItem[]) => Promise<EvidenceItem[]>;
   judgeClaim: (
     claim: string,
     evidence: EvidenceItem[],

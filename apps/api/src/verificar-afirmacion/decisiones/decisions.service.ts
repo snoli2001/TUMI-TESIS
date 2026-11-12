@@ -68,6 +68,34 @@ export class DecisionsService {
     return (kept.length > 0 ? kept : limited.slice(0, 3)).slice(0, 8);
   }
 
+  async clasificarCirculacion(claims: string[], evidence: EvidenceItem[]): Promise<EvidenceItem[]> {
+    const limited = evidence.slice(0, 5);
+    if (!this.enabled() || limited.length === 0) return limited;
+    const answers = await this.ask(
+      {
+        afirmaciones: claims,
+        paginas: limited.map((item) => ({ id: item.id, titulo: item.title, texto: item.snippet })),
+      },
+      limited.map((item) => ({
+        type: "choice" as const,
+        name: item.id,
+        instructions:
+          "Di qué hace esta página con la afirmación. No decidas si la afirmación es verdad. Si no habla de ella, elige menciona.",
+        choices: [
+          { value: "afirma", description: "La presenta como cierta o la repite a favor." },
+          { value: "desacredita", description: "La niega o la trata como falsa." },
+          { value: "menciona", description: "La nombra sin sostenerla ni negarla, o no habla de ella." },
+        ],
+      })),
+    );
+    return limited.map((item) => {
+      const answer = answers.find((candidate) => candidate.name === item.id);
+      const stance =
+        answer?.type === "choice" && esPostura(answer.choice) ? answer.choice : null;
+      return { ...item, role: "contraste" as const, stance };
+    });
+  }
+
   async judgeClaim(claim: string, evidence: EvidenceItem[], entities: EntityRef[]) {
     if (!this.enabled()) {
       return {
@@ -105,7 +133,7 @@ export class DecisionsService {
           type: "choice",
           name: "veredicto",
           instructions:
-            "Clasifica el claim únicamente con la evidencia adjunta. Si no alcanza, elige no_verificable.",
+            "Clasifica el claim solo con la evidencia adjunta. Esa evidencia es de medios, del padrón o del plan. Si no alcanza, elige no_verificable.",
           choices: [
             {
               value: "verdadero",
@@ -217,4 +245,8 @@ function mapAnswer(raw: RawAnswer): DecisionAnswer {
     };
   }
   return { type: "refusal", name };
+}
+
+function esPostura(value: string): value is "afirma" | "desacredita" | "menciona" {
+  return value === "afirma" || value === "desacredita" || value === "menciona";
 }

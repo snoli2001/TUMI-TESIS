@@ -1,7 +1,7 @@
 import { Component, signal } from "@angular/core";
 import type { ClaimVerdict, FactCheckResult, SourceRef } from "@tumi/contracts";
 import { ApiService } from "../api.service";
-import { etiquetaEstado, etiquetaOrigen, etiquetaPaso, etiquetaTipo } from "../etiquetas";
+import { citaDelPlan, etiquetaEstado, etiquetaOrigen, etiquetaPaso, etiquetaPostura, fuentesDeContraste, fuentesDePrueba, lecturaClasificador } from "../etiquetas";
 import { markdownAHtml } from "../markdown";
 import { SessionService } from "../session.service";
 
@@ -70,10 +70,20 @@ export class VerificarAfirmacionPage {
     return this.result()?.sources ?? [];
   }
 
+  prueba(): SourceRef[] {
+    return fuentesDePrueba(this.sources());
+  }
+
+  contraste(): SourceRef[] {
+    return fuentesDeContraste(this.sources());
+  }
+
   etiquetaPaso = etiquetaPaso;
   etiquetaEstado = etiquetaEstado;
-  etiquetaTipo = etiquetaTipo;
   etiquetaOrigen = etiquetaOrigen;
+  etiquetaPostura = etiquetaPostura;
+  cita = citaDelPlan;
+  lectura = (verdict: ClaimVerdict) => lecturaClasificador(verdict.decisions);
   formato = markdownAHtml;
 
   verdicts(): ClaimVerdict[] {

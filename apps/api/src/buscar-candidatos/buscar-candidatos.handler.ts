@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import type { CandidateSearchFilters, CandidateSearchResult, CandidateSummary } from "@tumi/contracts";
-import { getPrisma, publicAssetUrl } from "@tumi/database";
+import { getPrisma, mediaUrl } from "@tumi/database";
 import { tokens } from "../compartido/texto";
 
 const RESULT_LIMIT = 20;
@@ -9,11 +9,13 @@ const RESULT_LIMIT = 20;
 export class BuscarCandidatosHandler {
   async execute(q: string | undefined, filters: CandidateSearchFilters = {}): Promise<CandidateSearchResult> {
     const words = tokens(q ?? "").slice(0, 4);
-    if (words.length === 0) return { resultados: [], total: 0, organizaciones: [], sexos: [] };
+    const scope = scopeClause(filters);
+    if (words.length === 0 && !scope) return { resultados: [], total: 0, organizaciones: [], sexos: [] };
 
     const prisma = getPrisma();
-    const nameWhere = { AND: words.map((word) => ({ OR: nameFilters(word) })) };
-    const where = { AND: [nameWhere, ...filterClauses(filters)] };
+    const nameWhere = words.length > 0 ? { AND: words.map((word) => ({ OR: nameFilters(word) })) } : null;
+    const base = { AND: [nameWhere, scope].filter((clause) => clause !== null) };
+    const where = { AND: [...base.AND, ...filterClauses(filters)] };
     const [total, rows, organizations, sexes] = await Promise.all([
       prisma.candidate.count({ where }),
       prisma.candidate.findMany({
@@ -23,12 +25,12 @@ export class BuscarCandidatosHandler {
         take: RESULT_LIMIT,
       }),
       prisma.organization.findMany({
-        where: { lists: { some: { candidates: { some: nameWhere } } } },
+        where: { lists: { some: { candidates: { some: base } } } },
         select: { name: true },
         orderBy: { name: "asc" },
       }),
       prisma.resume.findMany({
-        where: { sexo: { not: null }, candidate: nameWhere },
+        where: { sexo: { not: null }, candidate: base },
         distinct: ["sexo"],
         select: { sexo: true },
       }),
@@ -59,10 +61,20 @@ function toSummary(row: {
     cargo: row.cargoEleccion,
     partido: row.list.organization.name,
     sigla: null,
-    fotoUrl: publicAssetUrl(row.photoR2Key) ?? row.photoSourceUrl,
-    logoUrl: publicAssetUrl(row.list.organization.logoR2Key) ?? row.list.organization.logoSourceUrl,
+    fotoUrl: mediaUrl(row.photoR2Key) ?? row.photoSourceUrl,
+    logoUrl: mediaUrl(row.list.organization.logoR2Key) ?? row.list.organization.logoSourceUrl,
     demostracion: false,
   };
+}
+
+function scopeClause(filters: CandidateSearchFilters): object | null {
+  const distrito = filters.distrito?.trim();
+  const provincia = filters.provincia?.trim();
+  const departamento = filters.departamento?.trim();
+  if (distrito) return { list: { districtCode: distrito } };
+  if (provincia) return { list: { provinceCode: provincia } };
+  if (departamento) return { list: { departmentCode: departamento } };
+  return null;
 }
 
 function filterClauses(filters: CandidateSearchFilters): object[] {

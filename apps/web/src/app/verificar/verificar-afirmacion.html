@@ -3,7 +3,7 @@
     <header class="hero">
       <p class="eyebrow">Consulta ciudadana</p>
       <h1>Contrasta una afirmación con fuentes.</h1>
-      <p class="lede">Escribe lo que oíste. TUMI busca al candidato, el plan y la página que lo sostiene.</p>
+      <p class="lede">Escribe lo que oíste. TUMI lo contrasta con el padrón, el plan y notas de medios.</p>
     </header>
     <form class="composer" (submit)="$event.preventDefault(); submit()">
       <label for="afirmacion">Afirmación</label>
@@ -34,8 +34,17 @@
         }
         @for (persona of result()?.entities ?? []; track persona.id) {
           <p class="identidad">
-            Se refiere a <strong>{{ persona.nombre }}</strong>
-            <span class="muted">{{ persona.cargo }} · {{ persona.partido }}</span>
+            @if (persona.fotoUrl) {
+              <img class="portrait" [src]="persona.fotoUrl" [alt]="persona.nombre" />
+            }
+            <span>
+              @if (persona.alias) {
+                El apodo «{{ persona.alias }}» corresponde a <strong>{{ persona.nombre }}</strong>
+              } @else {
+                Se refiere a <strong>{{ persona.nombre }}</strong>
+              }
+              <span class="muted">{{ persona.cargo }} · {{ persona.partido }}</span>
+            </span>
           </p>
         }
         <div class="prose" [innerHTML]="formato(draft() || result()?.conclusion || '')"></div>
@@ -44,40 +53,78 @@
     @for (verdict of verdicts(); track verdict.claim) {
       <article class="panel verdict-card">
         <p class="verdict" [attr.data-verdict]="verdict.verdict">{{ verdict.verdict.replace("_", " ") }}</p>
-        <p>{{ verdict.claim }}</p>
+        <div class="cita">
+          <div>
+            <p class="eyebrow">Afirmación</p>
+            <p>{{ verdict.claim }}</p>
+          </div>
+          @if (cita(verdict.sources); as fuente) {
+            <div>
+              <p class="eyebrow">Plan de gobierno</p>
+              <p>{{ fuente.snippet }}</p>
+              <p class="muted">
+                @if (fuente.codigoExpediente) {
+                  {{ fuente.codigoExpediente }}
+                }
+                @if (fuente.pagina !== null) {
+                  · página {{ fuente.pagina }}
+                }
+              </p>
+              @if (fuente.url) {
+                <a [href]="fuente.url" target="_blank" rel="noreferrer">Abrir esta página</a>
+              }
+            </div>
+          }
+        </div>
         @if (verdict.confidence !== null) {
           <p class="muted">Confianza {{ (verdict.confidence * 100).toFixed(0) }}%</p>
           <div class="bar"><span [style.width.%]="verdict.confidence * 100"></span></div>
         }
-        @for (decision of verdict.decisions; track decision.name) {
-          <p class="muted decision">
-            {{ decision.name }} · {{ etiquetaTipo(decision.type) }}
-            @if (decision.type === "predicate") {
-              · {{ (decision.probability * 100).toFixed(0) }}%
-            }
-            @if (decision.type === "choice") {
-              · {{ decision.choice }} ({{ (decision.confidence * 100).toFixed(0) }}%)
-            }
-            @if (decision.type === "score") {
-              · {{ decision.score.toFixed(2) }}
-            }
-          </p>
+        @if (lectura(verdict); as clasificador) {
+          @if (clasificador.respalda !== null) {
+            <p class="muted">Respalda {{ (clasificador.respalda * 100).toFixed(0) }}%</p>
+            <div class="bar"><span [style.width.%]="clasificador.respalda * 100"></span></div>
+          }
+          @if (clasificador.niega !== null) {
+            <p class="muted">Niega {{ (clasificador.niega * 100).toFixed(0) }}%</p>
+            <div class="bar"><span [style.width.%]="clasificador.niega * 100"></span></div>
+          }
+          @if (clasificador.solidez !== null) {
+            <p class="muted">Solidez @if (clasificador.solidezTexto) { {{ clasificador.solidezTexto }} }</p>
+            <div class="bar"><span [style.width.%]="clasificador.solidez * 100"></span></div>
+          }
         }
       </article>
     }
   </div>
   <aside class="panel">
     <h2>Fuentes</h2>
-    @if (!sources().length) {
+    <p class="muted">Periódicos, medios y documentos oficiales. Un enlace de red social o de Wikipedia no sostiene el veredicto.</p>
+    @if (!prueba().length) {
       <p class="muted">Aparecen cuando la recuperación termina.</p>
     }
-    @for (source of sources(); track source.id) {
+    @for (source of prueba(); track source.id) {
       <article>
         <strong>{{ source.title }}</strong>
         <p class="muted">{{ etiquetaOrigen(source.origin) }}</p>
         <p>{{ source.snippet }}</p>
         @if (source.url) {
           <a [href]="source.url" target="_blank" rel="noreferrer">Abrir fuente</a>
+        }
+      </article>
+    }
+    <h2 class="circula">Circula también</h2>
+    <p class="muted">Páginas no verificadas. Muestran si la afirmación se está difundiendo y si alguien la afirma o la desacredita.</p>
+    @if (result() && !contraste().length) {
+      <p class="muted">Ninguna en esta consulta.</p>
+    }
+    @for (source of contraste(); track source.id) {
+      <article>
+        <strong>{{ source.title }}</strong>
+        <p class="postura">{{ etiquetaPostura(source.stance) }}</p>
+        <p>{{ source.snippet }}</p>
+        @if (source.url) {
+          <a [href]="source.url" target="_blank" rel="noreferrer">Abrir página</a>
         }
       </article>
     }

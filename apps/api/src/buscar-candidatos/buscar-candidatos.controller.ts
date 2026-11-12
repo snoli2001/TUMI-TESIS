@@ -9,6 +9,9 @@ export class BuscarCandidatosController {
   @Get()
   list(
     @Query("q") q?: string,
+    @Query("departamento") departamento?: string,
+    @Query("provincia") provincia?: string,
+    @Query("distrito") distrito?: string,
     @Query("organizacion") organizacion?: string,
     @Query("sexo") sexo?: string,
     @Query("orden") orden?: string,
@@ -20,6 +23,9 @@ export class BuscarCandidatosController {
     @Query("trabajo") trabajo?: string,
   ): Promise<CandidateSearchResult> {
     const filters: CandidateSearchFilters = {
+      departamento,
+      provincia,
+      distrito,
       organizacion,
       sexo,
       orden: orden === "organizacion" ? "organizacion" : "nombre",

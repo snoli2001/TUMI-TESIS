@@ -1,6 +1,6 @@
 import { Injectable, Logger } from "@nestjs/common";
 import type { EntityRef } from "@tumi/contracts";
-import { getPrisma } from "@tumi/database";
+import { getPrisma, mediaUrl } from "@tumi/database";
 import { tokens } from "../../compartido/texto";
 
 interface RemoteCandidate {
@@ -28,7 +28,8 @@ export class JneSearchService {
       .join(" AND ");
     const rows = await getPrisma().$queryRawUnsafe<CandidateRow[]>(
       `SELECT c.hoja_vida_id AS id, c.nombres, c.apellido_paterno AS paterno,
-              c.apellido_materno AS materno, c.cargo_eleccion AS cargo, o.name AS partido
+              c.apellido_materno AS materno, c.cargo_eleccion AS cargo, o.name AS partido,
+              c.photo_r2_key AS "fotoKey", c.photo_source_url AS "fotoUrl"
        FROM tumi.candidates c
        JOIN tumi.lists l ON l.source_id = c.list_source_id
        JOIN tumi.organizations o ON o.source_id = l.organization_source_id
@@ -79,6 +80,8 @@ export class JneSearchService {
             nombre: nombrePropio(nombre),
             cargo: frase(row.cargoEleccion),
             partido: nombrePropio(partido),
+            fotoUrl: mediaUrl(row.photoR2Key) ?? row.photoSourceUrl,
+            alias: null,
           } satisfies EntityRef,
         };
       })
@@ -111,6 +114,8 @@ interface CandidateRow {
   materno: string;
   cargo: string;
   partido: string;
+  fotoKey: string | null;
+  fotoUrl: string | null;
 }
 
 function presentar(row: CandidateRow): EntityRef {
@@ -119,6 +124,8 @@ function presentar(row: CandidateRow): EntityRef {
     nombre: nombrePropio([row.nombres, row.paterno, row.materno].filter(Boolean).join(" ")),
     cargo: frase(row.cargo),
     partido: nombrePropio(row.partido),
+    fotoUrl: mediaUrl(row.fotoKey) ?? row.fotoUrl,
+    alias: null,
   };
 }
 
@@ -152,6 +159,8 @@ function normalizeRemote(row: RemoteCandidate): EntityRef[] {
       nombre: row.nombre,
       cargo: typeof row.cargo === "string" ? row.cargo : "No indicado",
       partido: typeof row.partido === "string" ? row.partido : "No indicado",
+      fotoUrl: null,
+      alias: null,
     },
   ];
 }

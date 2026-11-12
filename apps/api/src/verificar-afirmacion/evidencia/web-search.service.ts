@@ -1,34 +1,57 @@
 import { Injectable, Logger } from "@nestjs/common";
-import { tavily } from "@tavily/core";
+import { tavily, type TavilySearchOptions } from "@tavily/core";
 import type { EvidenceItem } from "../grafo/state";
+import { DOMINIOS_MEDIO, rolDeUrl } from "./medios";
 
 @Injectable()
 export class WebSearchService {
   private readonly logger = new Logger(WebSearchService.name);
 
   async search(query: string): Promise<EvidenceItem[]> {
-    const apiKey = process.env.TAVILY_API_KEY?.trim();
     const text = query.trim().slice(0, 400);
     if (text.length < 3) return [];
+    const [medios, circulacion] = await Promise.all([
+      this.consultar(text, {
+        topic: "news",
+        searchDepth: "advanced",
+        maxResults: 4,
+        includeDomains: DOMINIOS_MEDIO,
+        includeDomainsMode: "restrict",
+      }),
+      this.consultar(text, {
+        topic: "general",
+        searchDepth: "basic",
+        maxResults: 4,
+        excludeDomains: DOMINIOS_MEDIO,
+      }),
+    ]);
+    return unicos([...medios, ...circulacion]);
+  }
+
+  private async consultar(query: string, opciones: TavilySearchOptions): Promise<EvidenceItem[]> {
+    const apiKey = process.env.TAVILY_API_KEY?.trim();
     try {
       const client = tavily(apiKey ? { apiKey } : {});
-      const response = await client.search(text, {
-        searchDepth: "advanced",
-        topic: "general",
-        maxResults: 5,
-        chunksPerSource: 3,
+      const response = await client.search(query, {
+        chunksPerSource: 2,
         includeAnswer: false,
         country: "peru",
+        ...opciones,
       });
       return response.results.flatMap((result) => {
-        if (!result.content) return [];
+        if (!result.content || !result.url) return [];
+        const role = rolDeUrl(result.url);
         return [
           {
             id: result.id || `tavily-${hash(result.url)}`,
-            title: result.title || result.url || "Resultado web",
-            url: result.url || null,
+            title: result.title || result.url,
+            url: result.url,
             snippet: result.content.slice(0, 700),
             origin: "tavily" as const,
+            role,
+            stance: null,
+            pagina: null,
+            codigoExpediente: null,
           },
         ];
       });
@@ -37,6 +60,12 @@ export class WebSearchService {
       return [];
     }
   }
+}
+
+function unicos(items: EvidenceItem[]): EvidenceItem[] {
+  const map = new Map<string, EvidenceItem>();
+  for (const item of items) map.set(item.url ?? item.id, item);
+  return [...map.values()];
 }
 
 function hash(value: string): string {

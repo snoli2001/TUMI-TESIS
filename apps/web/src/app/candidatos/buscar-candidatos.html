@@ -1,7 +1,7 @@
 <header class="page-intro">
   <p class="eyebrow">Padrón</p>
   <h1>Candidatos</h1>
-  <p class="lede">Busca por apellido, nombre o partido. Los filtros se aplican a esa búsqueda.</p>
+  <p class="lede">Busca por apellido o elige departamento, provincia y distrito. Los demás filtros afinan esa lista.</p>
 </header>
 <form class="composer" (submit)="$event.preventDefault(); search()">
   <label for="busqueda">Buscar candidato</label>
@@ -18,6 +18,36 @@
     </button>
   </div>
 </form>
+
+<div class="filters-grid geo-grid">
+  <label>
+    <span>Departamento</span>
+    <select [value]="departamento()" (change)="setDepartamento($any($event.target).value)">
+      <option value="">Todos</option>
+      @for (row of departments(); track row.code) {
+        <option [value]="row.code">{{ row.name }}</option>
+      }
+    </select>
+  </label>
+  <label>
+    <span>Provincia</span>
+    <select [disabled]="!departamento()" [value]="provincia()" (change)="setProvincia($any($event.target).value)">
+      <option value="">Todas</option>
+      @for (row of provinces(); track row.code) {
+        <option [value]="row.code">{{ row.name }}</option>
+      }
+    </select>
+  </label>
+  <label>
+    <span>Distrito</span>
+    <select [disabled]="!provincia()" [value]="distrito()" (change)="setDistrito($any($event.target).value)">
+      <option value="">Todos</option>
+      @for (row of districts(); track row.code) {
+        <option [value]="row.code">{{ row.name }}</option>
+      }
+    </select>
+  </label>
+</div>
 
 <dialog #filtersDialog class="filters-dialog">
   <div class="filters-dialog-head">
@@ -107,7 +137,7 @@
   <p class="muted">Buscando…</p>
 }
 @if (!searched() && !error() && !loading()) {
-  <p class="muted">Escribe al menos un apellido para buscar.</p>
+  <p class="muted">Escribe al menos un apellido o elige un departamento.</p>
 }
 @if (searched() && !loading() && !error()) {
   <p class="result-count">{{ rows().length }} de {{ total() }} candidaturas</p>

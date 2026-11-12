@@ -130,13 +130,14 @@ Esa estructura ya está en `apps/api/src` y en `apps/web/src/app`. Cada corte ti
 
 ### Verificar video
 
-El incremento actual recibe una transcripción en `POST /api/verificar-video/stream`. Una línea es una afirmación. Si la línea empieza con `[00:12]` o con un rango `[00:12-00:40]`, ese intervalo se guarda en el turno y el historial lo muestra. Cada afirmación pasa por el grafo de `verificar-afirmacion`. La pantalla está en `/video`.
+El incremento actual acepta una URL pública de YouTube de hasta 4 minutos en `POST /api/verificar-video/stream`, o una transcripción pegada. El worker baja el audio y lo transcribe con marcas de tiempo. Cada afirmación pasa por el grafo de `verificar-afirmacion`. La pantalla está en `/video` y el reproductor abre el segundo citado.
 
 | Pieza | Responsabilidad |
 | --- | --- |
-| Comando | Recibe la transcripción, la parte y abre la sesión |
+| Comando | Recibe la URL o la transcripción, la parte y abre la sesión |
 | Grafo existente | Identifica candidato, recupera plan y hoja de vida, verifica |
-| Decisions API | `apoya`, `contradice`, veredicto y solidez por afirmación |
+| Decisions API | `apoya`, `contradice`, veredicto y solidez por afirmación. Solo usa padrón, plan y medios |
+| Circulación | Redes, blogs y Wikipedia se muestran aparte y no sostienen el veredicto |
 | Consulta de historial | Devuelve las afirmaciones con su intervalo |
 
-Descargar el audio de una URL, transcribirlo en el worker y leer texto en pantalla quedan para el incremento siguiente.
+Leer texto en pantalla queda para el incremento siguiente.

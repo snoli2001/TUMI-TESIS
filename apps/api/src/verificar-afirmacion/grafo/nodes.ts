@@ -54,9 +54,12 @@ export async function retrieve(
   const stream = hooks(config);
   stream.onNode("recuperacion", "start");
   const found = await deps.searchEvidence(state.query, state.claims, state.entities, state.sessionId);
-  const evidence = await deps.rerank(state.claims, found);
+  const prueba = found.filter((item) => item.role !== "contraste");
+  const contraste = found.filter((item) => item.role === "contraste");
+  const ranked = await deps.rerank(state.claims, prueba);
+  const circulacion = await deps.clasificarCirculacion(state.claims, contraste);
   stream.onNode("recuperacion", "done");
-  return { evidence };
+  return { evidence: [...ranked, ...circulacion] };
 }
 
 export async function verify(
@@ -69,12 +72,13 @@ export async function verify(
   const verdicts = [];
   let degraded = !deps.decisionsEnabled();
   for (const claim of state.claims) {
-    const judged = await deps.judgeClaim(claim, state.evidence, state.entities);
+    const prueba = state.evidence.filter((item) => item.role !== "contraste");
+    const judged = await deps.judgeClaim(claim, prueba, state.entities);
     degraded = degraded || judged.degraded;
     const verdict = {
       claim,
       ...judged,
-      sources: state.evidence,
+      sources: prueba,
     };
     verdicts.push(verdict);
     stream.onDecision({
