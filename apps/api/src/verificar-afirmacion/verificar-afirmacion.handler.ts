@@ -13,7 +13,7 @@ import { buildGraph } from "./grafo/fact-check.graph";
 import { mejorCoincidencia, menciones, nombresAlInicio, nombresEnTexto } from "./grafo/menciones";
 import type { AgentDeps, StreamHooks, TumiState } from "./grafo/state";
 import { cargarFicha } from "./ficha/cargar";
-import { decidir, type FichaOficial, type Regla } from "./ficha/reglas";
+import { consultaWeb, decidir, type FichaOficial, type Regla } from "./ficha/reglas";
 import { LlmService } from "./redaccion/llm.service";
 
 @Injectable()
@@ -206,14 +206,12 @@ export class VerificarAfirmacionHandler implements OnModuleInit {
         const codigoExpedientes = ficha
           ? [ficha.codigoExpediente ?? "__sin_expediente__"]
           : await this.vectors.expedientesDe(entities.map((entity) => entity.id));
-        const webQuery = ficha
-          ? `${ficha.nombre} elecciones regionales y municipales 2026 ${text}`
-          : text;
+        const webQuery = ficha ? consultaWeb(ficha.nombreCorto, text, ficha.nombre) : text;
         const [local, remote] = await Promise.all([
           this.vectors.search(text, { codigoExpedientes, sessionId }),
           this.web.search(webQuery),
         ]);
-        return [...local, ...remote];
+        return [...(ficha ? hojaDe(ficha) : []), ...local, ...remote];
       },
       rerank: (claims, evidence) => this.decisions.rerank(claims, evidence),
       clasificarCirculacion: (claims, evidence) => this.decisions.clasificarCirculacion(claims, evidence),
@@ -306,6 +304,20 @@ function uniqueSources(state: TumiState) {
     stance,
     pagina,
     codigoExpediente,
+  }));
+}
+
+function hojaDe(ficha: FichaOficial): TumiState["evidence"] {
+  return ficha.trayectoria.slice(0, 12).map((item, index) => ({
+    id: `hoja-${ficha.id}-${index}`,
+    title: "Hoja de vida",
+    url: null,
+    snippet: item.texto,
+    origin: "jne" as const,
+    role: "prueba" as const,
+    stance: null,
+    pagina: null,
+    codigoExpediente: ficha.codigoExpediente,
   }));
 }
 

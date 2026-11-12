@@ -22,6 +22,9 @@ export async function cargarFicha(id: string): Promise<FichaOficial | null> {
         include: {
           criminal: true,
           obligation: true,
+          elected: true,
+          work: true,
+          education: true,
         },
       },
     },
@@ -43,14 +46,39 @@ export async function cargarFicha(id: string): Promise<FichaOficial | null> {
       .join(" ");
     return texto ? [{ texto }] : [];
   });
+  const trayectoria = [
+    ...(row.resume?.elected ?? []).flatMap((item) => fila("electo", ["Cargo electo", item.cargo, item.orgPolitica, item.anioDesde, item.anioHasta])),
+    ...(row.resume?.work ?? []).flatMap((item) => fila("trabajo", [item.ocupacionProfesion, item.centroTrabajo, item.anioDesde, item.anioHasta])),
+    ...(row.resume?.education ?? []).flatMap((item) => fila("estudio", [item.carrera, item.universidad, item.anioBachiller])),
+  ];
+  const primerNombre = row.nombres.trim().split(/\s+/)[0] ?? "";
   return {
     id: row.hojaVidaId,
     nombre: [row.nombres, row.apellidoPaterno, row.apellidoMaterno].filter(Boolean).join(" "),
+    nombreCorto: presentar([primerNombre, row.apellidoPaterno].filter(Boolean).join(" ")),
     cargo: row.cargoEleccion,
     partido: row.list.organization.name,
     fotoUrl: mediaUrl(row.photoR2Key) ?? row.photoSourceUrl,
     codigoExpediente: row.list.codigoExpediente,
     propuestas,
     sentencias,
+    trayectoria,
   };
+}
+
+function fila(
+  clase: "electo" | "trabajo" | "estudio",
+  partes: Array<string | null>,
+): Array<{ clase: "electo" | "trabajo" | "estudio"; texto: string }> {
+  const texto = partes
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value))
+    .join(", ");
+  return texto ? [{ clase, texto }] : [];
+}
+
+function presentar(value: string): string {
+  return value
+    .toLocaleLowerCase("es")
+    .replace(/\p{L}+/gu, (word) => word.charAt(0).toLocaleUpperCase("es") + word.slice(1));
 }
