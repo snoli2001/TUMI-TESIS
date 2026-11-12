@@ -9,9 +9,11 @@ datasource db {
 }
 
 model Organization {
-  sourceId String         @id @map("source_id")
-  name     String
-  lists    ElectionList[]
+  sourceId      String         @id @map("source_id")
+  name          String
+  logoSourceUrl String?        @map("logo_source_url")
+  logoR2Key     String?        @map("logo_r2_key")
+  lists         ElectionList[]
 
   @@map("organizations")
   @@schema("tumi")
@@ -38,6 +40,8 @@ model Candidate {
   apellidoMaterno String       @map("apellido_materno")
   cargoEleccion   String       @map("cargo_eleccion")
   estadoCandidato String       @default("") @map("estado_candidato")
+  photoSourceUrl  String?      @map("photo_source_url")
+  photoR2Key      String?      @map("photo_r2_key")
   list            ElectionList @relation(fields: [listSourceId], references: [sourceId])
   resume          Resume?
 
@@ -46,11 +50,22 @@ model Candidate {
 }
 
 model Resume {
-  hojaVidaId String            @id @map("hoja_vida_id")
-  cargo      String?
-  candidate  Candidate         @relation(fields: [hojaVidaId], references: [hojaVidaId])
-  work       ResumeWork[]
-  education  ResumeEducation[]
+  hojaVidaId         String               @id @map("hoja_vida_id")
+  sexo               String?
+  fechaNacimiento    String?              @map("fecha_nacimiento")
+  cargo              String?
+  primaryCompleted   Boolean?             @map("primary_completed")
+  secondaryCompleted Boolean?             @map("secondary_completed")
+  candidate          Candidate            @relation(fields: [hojaVidaId], references: [hojaVidaId])
+  work               ResumeWork[]
+  education          ResumeEducation[]
+  elected            ResumeElected[]
+  resignations       ResumeResignation[]
+  income             ResumeIncome[]
+  properties         ResumeProperty[]
+  vehicles           ResumeVehicle[]
+  criminal           ResumeCriminal[]
+  obligation         ResumeObligation[]
 
   @@map("resumes")
   @@schema("tumi")
@@ -62,6 +77,11 @@ model ResumeWork {
   sourceId            String  @map("source_id")
   centroTrabajo       String? @map("centro_trabajo")
   ocupacionProfesion  String? @map("ocupacion_profesion")
+  anioDesde           String? @map("anio_desde")
+  anioHasta           String? @map("anio_hasta")
+  departamento        String?
+  provincia           String?
+  distrito            String?
   resume              Resume  @relation(fields: [hojaVidaId], references: [hojaVidaId], onDelete: Cascade)
 
   @@map("resume_work")
@@ -72,11 +92,104 @@ model ResumeEducation {
   id          BigInt  @id @default(autoincrement())
   hojaVidaId  String  @map("hoja_vida_id")
   sourceId    String  @map("source_id")
-  universidad String?
-  carrera     String?
-  resume      Resume  @relation(fields: [hojaVidaId], references: [hojaVidaId], onDelete: Cascade)
+  universidad   String?
+  carrera       String?
+  anioBachiller String? @map("anio_bachiller")
+  completed     Boolean?
+  resume       Resume  @relation(fields: [hojaVidaId], references: [hojaVidaId], onDelete: Cascade)
 
   @@map("resume_education")
+  @@schema("tumi")
+}
+
+model ResumeElected {
+  id          BigInt  @id @default(autoincrement())
+  hojaVidaId  String  @map("hoja_vida_id")
+  sourceId    String  @map("source_id")
+  orgPolitica String? @map("org_politica")
+  cargo       String?
+  anioDesde   String? @map("anio_desde")
+  anioHasta   String? @map("anio_hasta")
+  resume      Resume  @relation(fields: [hojaVidaId], references: [hojaVidaId], onDelete: Cascade)
+
+  @@map("resume_elected")
+  @@schema("tumi")
+}
+
+model ResumeResignation {
+  id          BigInt  @id @default(autoincrement())
+  hojaVidaId  String  @map("hoja_vida_id")
+  sourceId    String  @map("source_id")
+  orgPolitica String? @map("org_politica")
+  anio        String?
+  resume      Resume  @relation(fields: [hojaVidaId], references: [hojaVidaId], onDelete: Cascade)
+
+  @@map("resume_resignations")
+  @@schema("tumi")
+}
+
+model ResumeIncome {
+  id         BigInt  @id @default(autoincrement())
+  hojaVidaId String  @map("hoja_vida_id")
+  sourceId   String  @map("source_id")
+  anio       String?
+  total      String?
+  resume     Resume  @relation(fields: [hojaVidaId], references: [hojaVidaId], onDelete: Cascade)
+
+  @@map("resume_income")
+  @@schema("tumi")
+}
+
+model ResumeProperty {
+  id         BigInt  @id @default(autoincrement())
+  hojaVidaId String  @map("hoja_vida_id")
+  sourceId   String  @map("source_id")
+  tipo       String?
+  direccion  String?
+  autovaluo  String?
+  resume     Resume  @relation(fields: [hojaVidaId], references: [hojaVidaId], onDelete: Cascade)
+
+  @@map("resume_properties")
+  @@schema("tumi")
+}
+
+model ResumeVehicle {
+  id         BigInt  @id @default(autoincrement())
+  hojaVidaId String  @map("hoja_vida_id")
+  sourceId   String  @map("source_id")
+  placa      String?
+  valor      String?
+  resume     Resume  @relation(fields: [hojaVidaId], references: [hojaVidaId], onDelete: Cascade)
+
+  @@map("resume_vehicles")
+  @@schema("tumi")
+}
+
+model ResumeCriminal {
+  id             BigInt  @id @default(autoincrement())
+  hojaVidaId     String  @map("hoja_vida_id")
+  sourceId       String  @map("source_id")
+  materia        String?
+  expediente     String?
+  fechaSentencia String? @map("fecha_sentencia")
+  fallo          String?
+  resume         Resume  @relation(fields: [hojaVidaId], references: [hojaVidaId], onDelete: Cascade)
+
+  @@map("resume_criminal")
+  @@schema("tumi")
+}
+
+model ResumeObligation {
+  id             BigInt  @id @default(autoincrement())
+  hojaVidaId     String  @map("hoja_vida_id")
+  sourceId       String  @map("source_id")
+  materia        String?
+  expediente     String?
+  fechaSentencia String? @map("fecha_sentencia")
+  fallo          String?
+  resume         Resume  @relation(fields: [hojaVidaId], references: [hojaVidaId], onDelete: Cascade)
+
+  @@map("resume_obligation")
   @@schema("tumi")
 }
 
@@ -109,8 +222,10 @@ model PlanDimension {
 model PlanProposal {
   id          BigInt        @id @default(autoincrement())
   dimensionId BigInt        @map("dimension_id")
+  itemIndex   Int           @map("item_index")
   problema    String?
   objetivo    String?
+  indicador   String?
   meta        String?
   dimension   PlanDimension @relation(fields: [dimensionId], references: [id], onDelete: Cascade)
 

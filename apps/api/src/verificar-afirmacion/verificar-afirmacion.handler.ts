@@ -10,6 +10,7 @@ import { JneSearchService } from "./evidencia/jne-search.service";
 import { VectorSearchService } from "./evidencia/vector-search.service";
 import { WebSearchService } from "./evidencia/web-search.service";
 import { buildGraph } from "./grafo/fact-check.graph";
+import { mejorCoincidencia, menciones, nombresEnTexto } from "./grafo/menciones";
 import type { AgentDeps, StreamHooks, TumiState } from "./grafo/state";
 import { LlmService } from "./redaccion/llm.service";
 
@@ -87,7 +88,7 @@ export class VerificarAfirmacionHandler implements OnModuleInit {
   private deps(): AgentDeps {
     return {
       decisionsEnabled: () => this.decisions.enabled(),
-      searchCandidates: (query) => this.jne.search(query),
+      searchCandidates: (query) => this.buscarPorMencion(query),
       chooseCandidate: (query, entities) => this.decisions.chooseCandidate(query, entities),
       extractClaims: (query) => this.llm.extractClaims(query),
       searchEvidence: async (query, claims, entities, sessionId) => {
@@ -104,6 +105,30 @@ export class VerificarAfirmacionHandler implements OnModuleInit {
         this.decisions.judgeClaim(claim, evidence, entities),
       explain: (state, onToken) => this.llm.explain(state, onToken),
     };
+  }
+
+  private async buscarPorMencion(query: string): Promise<TumiState["entities"]> {
+    const alias = menciones(query);
+    const direct = await this.jne.searchByNames(alias);
+    if (direct.length > 0) return direct;
+    if (alias.length === 0) return this.jne.search(query);
+    const pages = await this.web.search(`${alias.join(" ")} apodo candidato elecciones Perú`);
+    const guesses = nombresEnTexto(
+      pages.map((page) => `${page.title}. ${page.snippet}`).join("\n"),
+      alias,
+    );
+    const hits: Array<{ entity: TumiState["entities"][number]; tokens: string[] }> = [];
+    for (const guess of guesses) {
+      const tokens = guess.split(/\s+/);
+      for (const entity of await this.jne.searchByNames(tokens)) {
+        hits.push({ entity, tokens });
+      }
+    }
+    const linked = mejorCoincidencia(hits).slice(0, 8);
+    this.logger.log(
+      `Apodo ${alias.join(", ")} vinculado a ${linked.map((entity) => entity.nombre).join("; ") || "nadie en el padrón"}`,
+    );
+    return linked;
   }
 
   private async openCheckpointer(): Promise<BaseCheckpointSaver> {

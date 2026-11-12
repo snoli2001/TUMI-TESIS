@@ -1,4 +1,8 @@
-<h1>Historial de esta sesión</h1>
+<header class="page-intro">
+  <p class="eyebrow">Sesión</p>
+  <h1>Historial de esta sesión</h1>
+  <p class="lede">Las consultas que hiciste en este navegador, con su veredicto y, si vino de un video, el segundo.</p>
+</header>
 @if (error()) {
   <p>{{ error() }}</p>
 }
@@ -19,7 +23,7 @@
         }
       </p>
     }
-    <p>{{ row.conclusion }}</p>
+    <div class="prose" [innerHTML]="formato(row.conclusion)"></div>
     <p class="muted">{{ row.createdAt }}</p>
   </article>
 }

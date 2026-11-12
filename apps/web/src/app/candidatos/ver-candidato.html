@@ -1,26 +1,293 @@
-<p><a routerLink="/candidatos">Volver</a></p>
+<p><a class="back" routerLink="/candidatos">Volver al padrón</a></p>
 @if (error()) {
-  <p>{{ error() }}</p>
+  <p class="error">{{ error() }}</p>
 }
 @if (profile(); as profile) {
   @if (profile.demostracion) {
     <span class="badge">Demostración</span>
   }
-  <h1>{{ profile.nombre }}</h1>
-  <p class="muted">{{ profile.cargo }} · {{ profile.partido }} @if (profile.sigla) { ({{ profile.sigla }}) }</p>
-  <p>{{ profile.biografia }}</p>
-  <h2>Planes</h2>
-  @for (plan of profile.planes; track plan.id) {
-    <article class="panel">
-      <h3>{{ plan.titulo }}</h3>
-      <p>{{ plan.resumen }}</p>
-    </article>
-  }
-  <h2>Documentos</h2>
-  @for (doc of profile.documentos; track doc.id) {
-    <article class="panel">
-      <strong>{{ doc.titulo }}</strong>
-      <p class="muted">{{ doc.origen }}</p>
-    </article>
+  <header class="panel candidate-header">
+    <div class="candidate-header-main">
+      <span class="avatar avatar-lg">
+        @if (profile.fotoUrl && !photoBroken()) {
+          <img class="portrait" [src]="profile.fotoUrl" [alt]="profile.nombre" (error)="photoBroken.set(true)" />
+        } @else {
+          <span>{{ initials(profile.nombre) }}</span>
+        }
+      </span>
+      <div>
+        <p class="eyebrow">{{ profile.partido }} @if (profile.sigla) { ({{ profile.sigla }}) }</p>
+        <h1>{{ profile.nombre }}</h1>
+        <p class="muted candidate-office">{{ profile.cargo }}</p>
+      </div>
+    </div>
+    <span class="logo-aside">
+      @if (profile.logoUrl && !logoBroken()) {
+        <img [src]="profile.logoUrl" [alt]="profile.partido" (error)="logoBroken.set(true)" />
+      } @else {
+        <span>{{ initials(profile.partido) }}</span>
+      }
+    </span>
+  </header>
+
+  <div class="tabs" role="tablist" aria-label="Ficha del candidato">
+    <button type="button" class="tab" role="tab" [attr.aria-selected]="tab() === 'hoja'" (click)="tab.set('hoja')">
+      Hoja de vida
+    </button>
+    <button type="button" class="tab" role="tab" [attr.aria-selected]="tab() === 'plan'" (click)="tab.set('plan')">
+      Plan de gobierno
+    </button>
+  </div>
+
+  @if (tab() === "hoja") {
+    @if (profile.hojaVida; as hoja) {
+      <p class="detail-note">Información declarada por el candidato ante el JNE.</p>
+
+      <section class="panel detail-section">
+        <h2>Quién es</h2>
+        @if (hasPersonal(profile)) {
+          <div class="fact-grid">
+            @if (hoja.sexo) {
+              <article class="fact"><p class="fact-label">Sexo</p><p>{{ hoja.sexo }}</p></article>
+            }
+            @if (hoja.fechaNacimiento) {
+              <article class="fact"><p class="fact-label">Fecha de nacimiento</p><p>{{ hoja.fechaNacimiento }}</p></article>
+            }
+            @if (hoja.cargo) {
+              <article class="fact"><p class="fact-label">Cargo</p><p>{{ hoja.cargo }}</p></article>
+            }
+          </div>
+        } @else {
+          <p class="muted">No hay datos personales declarados.</p>
+        }
+      </section>
+
+      <section class="panel detail-section" id="estudios">
+        <h2>Estudios</h2>
+        @if (hasBasicEducation(profile)) {
+          <div class="fact-grid">
+            @if (hoja.primariaCompleta !== null) {
+              <article class="fact">
+                <p class="fact-label">Primaria</p>
+                <p>{{ hoja.primariaCompleta ? "Completa" : "No completa" }}</p>
+              </article>
+            }
+            @if (hoja.secundariaCompleta !== null) {
+              <article class="fact">
+                <p class="fact-label">Secundaria</p>
+                <p>{{ hoja.secundariaCompleta ? "Completa" : "No completa" }}</p>
+              </article>
+            }
+          </div>
+        }
+        @if (hoja.estudios.length) {
+          <ol class="timeline">
+            @for (item of hoja.estudios; track $index) {
+              <li>
+                <p class="timeline-title">{{ item.universidad || "Universidad no indicada" }}</p>
+                @if (studySubtitle(item.carrera, item.anio)) {
+                  <p class="muted">{{ studySubtitle(item.carrera, item.anio) }}</p>
+                }
+              </li>
+            }
+          </ol>
+        } @else if (!hasBasicEducation(profile)) {
+          <p class="muted">No declaró estudios universitarios.</p>
+        }
+      </section>
+
+      <section class="panel detail-section" id="experiencia-laboral">
+        <h2>Dónde ha trabajado</h2>
+        @if (hoja.trabajo.length) {
+          <ol class="timeline">
+            @for (item of hoja.trabajo; track $index) {
+              <li>
+                <p class="timeline-title">{{ item.ocupacion || "Ocupación no indicada" }}</p>
+                @if (workSubtitle(item.centro, item.lugar, item.desde, item.hasta)) {
+                  <p class="muted">{{ workSubtitle(item.centro, item.lugar, item.desde, item.hasta) }}</p>
+                }
+              </li>
+            }
+          </ol>
+        } @else {
+          <p class="muted">No declaró experiencia laboral.</p>
+        }
+      </section>
+
+      @if (hoja.cargosElectos.length) {
+        <section class="panel detail-section" id="cargos-electos">
+          <h2>Cargos electos anteriores</h2>
+          <ol class="timeline">
+            @for (item of hoja.cargosElectos; track $index) {
+              <li>
+                <p class="timeline-title">{{ item.cargo || "Cargo no indicado" }}</p>
+                <p class="muted">{{ join([item.organizacion, years(item.desde, item.hasta)]) }}</p>
+              </li>
+            }
+          </ol>
+        </section>
+      }
+
+      @if (hoja.renuncias.length) {
+        <section class="panel detail-section">
+          <h2>Renuncias partidarias</h2>
+          <div class="fact-grid">
+            @for (item of hoja.renuncias; track $index) {
+              <article class="fact">
+                <p class="fact-label">{{ item.anio || "Año no indicado" }}</p>
+                <p>{{ item.organizacion || "Organización no indicada" }}</p>
+              </article>
+            }
+          </div>
+        </section>
+      }
+
+      @if (hoja.ingresos.length) {
+        <section class="panel detail-section" id="ingresos">
+          <h2>Ingresos declarados</h2>
+          <div class="fact-grid">
+            @for (item of hoja.ingresos; track $index) {
+              <article class="fact">
+                <p class="fact-label">{{ item.anio || "Año no indicado" }}</p>
+                <p>{{ money(item.total) || "Monto no indicado" }}</p>
+              </article>
+            }
+          </div>
+        </section>
+      }
+
+      @if (hasAssets(profile)) {
+        <section class="panel detail-section">
+          <h2>Patrimonio declarado</h2>
+          @if (hoja.inmuebles.length) {
+            <h3>Inmuebles</h3>
+            <div class="fact-grid">
+              @for (item of hoja.inmuebles; track $index) {
+                <article class="fact">
+                  <p class="fact-label">{{ item.tipo || "Inmueble" }}</p>
+                  <p>{{ propertyLabel(item) || "Sin detalle" }}</p>
+                </article>
+              }
+            </div>
+          }
+          @if (hoja.vehiculos.length) {
+            <h3>Vehículos</h3>
+            <div class="fact-grid">
+              @for (item of hoja.vehiculos; track $index) {
+                <article class="fact">
+                  <p class="fact-label">Vehículo</p>
+                  <p>{{ vehicleLabel(item) || "Sin detalle" }}</p>
+                </article>
+              }
+            </div>
+          }
+        </section>
+      }
+
+      <section class="panel detail-section" id="antecedentes">
+        <h2>Antecedentes judiciales</h2>
+        <p class="muted">Declaración de sentencias penales y por obligaciones.</p>
+        @if (hasSentences(profile)) {
+          @if (hoja.sentenciasPenales.length) {
+            <h3>Antecedentes penales</h3>
+            @for (item of hoja.sentenciasPenales; track $index) {
+              <article class="sentence">
+                <p class="timeline-title">{{ item.materia || "Materia no indicada" }}</p>
+                <p class="muted">{{ join([item.expediente, item.fecha]) }}</p>
+                @if (item.fallo) { <p>{{ item.fallo }}</p> }
+              </article>
+            }
+          }
+          @if (hoja.sentenciasObligacion.length) {
+            <h3>Obligaciones judiciales</h3>
+            @for (item of hoja.sentenciasObligacion; track $index) {
+              <article class="sentence">
+                <p class="timeline-title">{{ item.materia || "Materia no indicada" }}</p>
+                <p class="muted">{{ join([item.expediente, item.fecha]) }}</p>
+                @if (item.fallo) { <p>{{ item.fallo }}</p> }
+              </article>
+            }
+          }
+        } @else {
+          <p>No se registraron sentencias en la declaración.</p>
+          <p class="muted">No observado no significa que el hecho sea falso ni que no exista.</p>
+        }
+      </section>
+    } @else {
+      <section class="panel detail-section">
+        <h2>Hoja de vida no disponible</h2>
+        <p class="muted">Aún no tenemos la hoja de vida declarada para esta candidatura.</p>
+      </section>
+    }
+  } @else {
+    @if (profile.plan; as plan) {
+      <section class="panel detail-section">
+        <p class="eyebrow">Evidencia de la lista electoral</p>
+        <h2>Qué propone la lista</h2>
+        <p class="detail-note">Texto del plan presentado por la lista electoral, no una promesa personal del candidato.</p>
+        <div class="plan-actions">
+          @if (plan.pdfCompleto) {
+            <a class="plan-link" [href]="plan.pdfCompleto" download rel="noopener noreferrer">Descargar plan completo (PDF)</a>
+          }
+          @if (plan.pdfResumen) {
+            <a class="plan-link plan-link-secondary" [href]="plan.pdfResumen" download rel="noopener noreferrer">Descargar resumen (PDF)</a>
+          }
+        </div>
+      </section>
+      @if (plan.ideario) {
+        <section class="panel detail-section">
+          <h2>Ideario</h2>
+          <p class="prose">{{ plan.ideario }}</p>
+        </section>
+      }
+      @if (plan.vision) {
+        <section class="panel detail-section">
+          <h2>Visión</h2>
+          <p class="prose">{{ plan.vision }}</p>
+        </section>
+      }
+      @if (plan.dimensiones.length) {
+        <h2 class="section-heading">Propuestas por dimensión</h2>
+        <p class="muted">Cada propuesta se lee del problema al resultado que la lista espera alcanzar.</p>
+        @for (dimension of plan.dimensiones; track dimension.id) {
+          <details class="panel dimension">
+            <summary>
+              <span>{{ dimension.nombre }}</span>
+              <span class="badge">{{ dimension.propuestas.length }} {{ dimension.propuestas.length === 1 ? "propuesta" : "propuestas" }}</span>
+            </summary>
+            @for (propuesta of dimension.propuestas; track $index) {
+              <article class="proposal">
+                <h3>Propuesta {{ $index + 1 }}</h3>
+                @if (hasProposal(propuesta)) {
+                  @if (propuesta.problema) {
+                    <p><strong>Problema</strong> <span class="muted">Qué situación busca resolver</span><br />{{ propuesta.problema }}</p>
+                  }
+                  @if (propuesta.objetivo) {
+                    <p><strong>Objetivo</strong> <span class="muted">Qué cambio quiere conseguir</span><br />{{ propuesta.objetivo }}</p>
+                  }
+                  @if (propuesta.indicador) {
+                    <p><strong>Indicador</strong> <span class="muted">Cómo se medirá el avance</span><br />{{ propuesta.indicador }}</p>
+                  }
+                  @if (propuesta.meta) {
+                    <p><strong>Meta</strong> <span class="muted">A qué resultado quiere llegar</span><br />{{ propuesta.meta }}</p>
+                  }
+                } @else {
+                  <p class="muted">Sin detalle declarado.</p>
+                }
+              </article>
+            }
+          </details>
+        }
+      }
+      <p class="source-note">
+        Fuente:
+        <a href="https://votoinformado.jne.gob.pe/" target="_blank" rel="noopener noreferrer">JNE · Voto Informado</a>
+      </p>
+    } @else {
+      <section class="panel detail-section">
+        <h2>Plan no disponible</h2>
+        <p class="muted">Esta lista no tiene un plan de gobierno cargado.</p>
+      </section>
+    }
   }
 }

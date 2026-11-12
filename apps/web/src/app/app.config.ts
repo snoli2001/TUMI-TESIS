@@ -4,14 +4,23 @@ import {
   provideZonelessChangeDetection,
 } from "@angular/core";
 import { provideHttpClient } from "@angular/common/http";
-import { provideRouter } from "@angular/router";
+import { provideRouter, withViewTransitions } from "@angular/router";
 import { routes } from "./app.routes";
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideZonelessChangeDetection(),
-    provideRouter(routes),
+    provideRouter(
+      routes,
+      withViewTransitions({
+        onViewTransitionCreated: ({ transition }) => {
+          if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+            transition.skipTransition();
+          }
+        },
+      }),
+    ),
     provideHttpClient(),
   ],
 };

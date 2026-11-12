@@ -47,7 +47,7 @@ export class LlmService {
       });
       const stream = await model.stream([
         new SystemMessage(
-          "Redacta en español una explicación breve para un ciudadano. Los veredictos ya están decididos y no puedes cambiarlos. Cita las fuentes por título. Si el resultado está degradado, dilo.",
+          "Redacta en español una explicación breve para un ciudadano. Los veredictos ya están decididos y no puedes cambiarlos. Si hay entidades, la primera oración debe decir a quién se refiere la consulta: si usa un apodo, escribe que ese apodo corresponde a esa persona e incluye cargo y partido. Separa los argumentos en párrafos cortos y viñetas que empiecen con '- '. Usa **negrita** solo para el veredicto. Cita las fuentes por título. Si el resultado está degradado, dilo.",
         ),
         new HumanMessage(
           JSON.stringify({
@@ -100,10 +100,17 @@ function parseClaims(raw: string): string[] {
   }
 }
 
+function origenEnEspanol(origin: string): string {
+  if (origin === "jne") return "padrón";
+  if (origin === "tavily") return "web";
+  if (origin === "adjunto") return "adjunto";
+  return "plan";
+}
+
 function degradedConclusion(state: TumiState): string {
   const claims = state.claims.map((claim) => `- ${claim}`).join("\n");
   const sources = [...new Map(state.evidence.map((item) => [item.title, item])).values()]
-    .map((item) => `- ${item.title} (${item.origin})`)
+    .map((item) => `- ${item.title} (${origenEnEspanol(item.origin)})`)
     .join("\n");
   return [
     "Esta respuesta es de demostración: sin clave de OpenAI, TUMI no asigna un veredicto ni probabilidades.",

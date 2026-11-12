@@ -14,6 +14,31 @@ interface RemoteCandidate {
 export class JneSearchService {
   private readonly logger = new Logger(JneSearchService.name);
 
+  async searchByNames(words: string[]): Promise<EntityRef[]> {
+    const clean = [...new Set(words.map((word) => sinAcento(word.trim())).filter((word) => word.length > 2))].slice(
+      0,
+      4,
+    );
+    if (clean.length === 0) return [];
+    const where = clean
+      .map((_, index) => {
+        const slot = `$${index + 1}`;
+        return `(${plegado("c.nombres")} LIKE ${slot} OR ${plegado("c.apellido_paterno")} LIKE ${slot} OR ${plegado("c.apellido_materno")} LIKE ${slot})`;
+      })
+      .join(" AND ");
+    const rows = await getPrisma().$queryRawUnsafe<CandidateRow[]>(
+      `SELECT c.hoja_vida_id AS id, c.nombres, c.apellido_paterno AS paterno,
+              c.apellido_materno AS materno, c.cargo_eleccion AS cargo, o.name AS partido
+       FROM tumi.candidates c
+       JOIN tumi.lists l ON l.source_id = c.list_source_id
+       JOIN tumi.organizations o ON o.source_id = l.organization_source_id
+       WHERE ${where}
+       LIMIT 8`,
+      ...clean.map((word) => `%${word.replaceAll("%", "").replaceAll("_", "")}%`),
+    );
+    return rows.map(presentar);
+  }
+
   async search(query: string): Promise<EntityRef[]> {
     const local = await this.searchPostgres(query);
     const remote = await this.searchHttp(query);
@@ -51,9 +76,9 @@ export class JneSearchService {
           score,
           entity: {
             id: row.hojaVidaId,
-            nombre,
-            cargo: row.cargoEleccion,
-            partido,
+            nombre: nombrePropio(nombre),
+            cargo: frase(row.cargoEleccion),
+            partido: nombrePropio(partido),
           } satisfies EntityRef,
         };
       })
@@ -77,6 +102,46 @@ export class JneSearchService {
       return [];
     }
   }
+}
+
+interface CandidateRow {
+  id: string;
+  nombres: string;
+  paterno: string;
+  materno: string;
+  cargo: string;
+  partido: string;
+}
+
+function presentar(row: CandidateRow): EntityRef {
+  return {
+    id: row.id,
+    nombre: nombrePropio([row.nombres, row.paterno, row.materno].filter(Boolean).join(" ")),
+    cargo: frase(row.cargo),
+    partido: nombrePropio(row.partido),
+  };
+}
+
+function plegado(column: string): string {
+  return `translate(lower(${column}), 'áéíóúüñ', 'aeiouun')`;
+}
+
+function sinAcento(value: string): string {
+  return value
+    .toLocaleLowerCase("es")
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "");
+}
+
+function nombrePropio(value: string): string {
+  return value
+    .toLocaleLowerCase("es")
+    .replace(/\p{L}+/gu, (word) => word.charAt(0).toLocaleUpperCase("es") + word.slice(1));
+}
+
+function frase(value: string): string {
+  const lower = value.toLocaleLowerCase("es");
+  return lower.charAt(0).toLocaleUpperCase("es") + lower.slice(1);
 }
 
 function normalizeRemote(row: RemoteCandidate): EntityRef[] {

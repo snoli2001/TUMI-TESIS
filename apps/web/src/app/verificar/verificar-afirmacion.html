@@ -1,9 +1,14 @@
 <section class="layout">
   <div>
-    <p class="eyebrow">Consulta ciudadana</p>
-    <h1>Contrasta una afirmación con fuentes.</h1>
-    <form (submit)="$event.preventDefault(); submit()">
+    <header class="hero">
+      <p class="eyebrow">Consulta ciudadana</p>
+      <h1>Contrasta una afirmación con fuentes.</h1>
+      <p class="lede">Escribe lo que oíste. TUMI busca al candidato, el plan y la página que lo sostiene.</p>
+    </header>
+    <form class="composer" (submit)="$event.preventDefault(); submit()">
+      <label for="afirmacion">Afirmación</label>
       <textarea
+        id="afirmacion"
         [value]="query()"
         (input)="query.set($any($event.target).value)"
         placeholder="Ejemplo: Aurora Quispe Demo prometió un tren eléctrico al Callao."
@@ -13,12 +18,12 @@
       </button>
     </form>
     @if (error()) {
-      <p class="error">{{ error() }}</p>
+      <p class="error" role="alert">{{ error() }}</p>
     }
     @if (nodes().length) {
-      <ol class="nodes">
+      <ol class="nodes" aria-label="Pasos de la verificación">
         @for (node of nodes(); track node.node) {
-          <li>{{ node.node }} · {{ node.status }}</li>
+          <li [class.live]="node.status === 'start'">{{ etiquetaPaso(node.node) }} · {{ etiquetaEstado(node.status) }}</li>
         }
       </ol>
     }
@@ -27,12 +32,18 @@
         @if (result()?.degraded) {
           <span class="badge">Demostración</span>
         }
-        <p class="prose">{{ draft() || result()?.conclusion }}</p>
+        @for (persona of result()?.entities ?? []; track persona.id) {
+          <p class="identidad">
+            Se refiere a <strong>{{ persona.nombre }}</strong>
+            <span class="muted">{{ persona.cargo }} · {{ persona.partido }}</span>
+          </p>
+        }
+        <div class="prose" [innerHTML]="formato(draft() || result()?.conclusion || '')"></div>
       </article>
     }
     @for (verdict of verdicts(); track verdict.claim) {
       <article class="panel verdict-card">
-        <p class="verdict">{{ verdict.verdict.replace("_", " ") }}</p>
+        <p class="verdict" [attr.data-verdict]="verdict.verdict">{{ verdict.verdict.replace("_", " ") }}</p>
         <p>{{ verdict.claim }}</p>
         @if (verdict.confidence !== null) {
           <p class="muted">Confianza {{ (verdict.confidence * 100).toFixed(0) }}%</p>
@@ -40,7 +51,7 @@
         }
         @for (decision of verdict.decisions; track decision.name) {
           <p class="muted decision">
-            {{ decision.name }} · {{ decision.type }}
+            {{ decision.name }} · {{ etiquetaTipo(decision.type) }}
             @if (decision.type === "predicate") {
               · {{ (decision.probability * 100).toFixed(0) }}%
             }
@@ -63,10 +74,10 @@
     @for (source of sources(); track source.id) {
       <article>
         <strong>{{ source.title }}</strong>
-        <p class="muted">{{ source.origin }}</p>
+        <p class="muted">{{ etiquetaOrigen(source.origin) }}</p>
         <p>{{ source.snippet }}</p>
         @if (source.url) {
-          <a [href]="source.url" target="_blank" rel="noreferrer">Abrir</a>
+          <a [href]="source.url" target="_blank" rel="noreferrer">Abrir fuente</a>
         }
       </article>
     }

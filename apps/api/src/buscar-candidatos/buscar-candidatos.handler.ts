@@ -1,28 +1,98 @@
 import { Injectable } from "@nestjs/common";
-import type { CandidateSummary } from "@tumi/contracts";
-import { getPrisma } from "@tumi/database";
+import type { CandidateSearchFilters, CandidateSearchResult, CandidateSummary } from "@tumi/contracts";
+import { getPrisma, publicAssetUrl } from "@tumi/database";
 import { tokens } from "../compartido/texto";
+
+const RESULT_LIMIT = 20;
 
 @Injectable()
 export class BuscarCandidatosHandler {
-  async execute(q: string | undefined): Promise<CandidateSummary[]> {
+  async execute(q: string | undefined, filters: CandidateSearchFilters = {}): Promise<CandidateSearchResult> {
     const words = tokens(q ?? "").slice(0, 4);
-    if (words.length === 0) return [];
-    const rows = await getPrisma().candidate.findMany({
-      where: { AND: words.map((word) => ({ OR: nameFilters(word) })) },
-      include: { list: { include: { organization: true } } },
-      take: 20,
-    });
-    return rows.map((row) => ({
-      id: row.hojaVidaId,
-      nombre: fullName(row),
-      cargo: row.cargoEleccion,
-      partido: row.list.organization.name,
-      sigla: null,
-      biografia: "",
-      demostracion: false,
-    }));
+    if (words.length === 0) return { resultados: [], total: 0, organizaciones: [], sexos: [] };
+
+    const prisma = getPrisma();
+    const nameWhere = { AND: words.map((word) => ({ OR: nameFilters(word) })) };
+    const where = { AND: [nameWhere, ...filterClauses(filters)] };
+    const [total, rows, organizations, sexes] = await Promise.all([
+      prisma.candidate.count({ where }),
+      prisma.candidate.findMany({
+        where,
+        include: { list: { include: { organization: true } } },
+        orderBy: orderBy(filters.orden),
+        take: RESULT_LIMIT,
+      }),
+      prisma.organization.findMany({
+        where: { lists: { some: { candidates: { some: nameWhere } } } },
+        select: { name: true },
+        orderBy: { name: "asc" },
+      }),
+      prisma.resume.findMany({
+        where: { sexo: { not: null }, candidate: nameWhere },
+        distinct: ["sexo"],
+        select: { sexo: true },
+      }),
+    ]);
+
+    return {
+      resultados: rows.map(toSummary),
+      total,
+      organizaciones: [...new Set(organizations.map((org) => org.name))].sort(bySpanish),
+      sexos: [...new Set(sexes.map((row) => row.sexo).filter((sexo): sexo is string => Boolean(sexo?.trim())))].sort(bySpanish),
+    };
   }
+}
+
+function toSummary(row: {
+  hojaVidaId: string;
+  nombres: string;
+  apellidoPaterno: string;
+  apellidoMaterno: string;
+  cargoEleccion: string;
+  photoR2Key: string | null;
+  photoSourceUrl: string | null;
+  list: { organization: { name: string; logoR2Key: string | null; logoSourceUrl: string | null } };
+}): CandidateSummary {
+  return {
+    id: row.hojaVidaId,
+    nombre: fullName(row),
+    cargo: row.cargoEleccion,
+    partido: row.list.organization.name,
+    sigla: null,
+    fotoUrl: publicAssetUrl(row.photoR2Key) ?? row.photoSourceUrl,
+    logoUrl: publicAssetUrl(row.list.organization.logoR2Key) ?? row.list.organization.logoSourceUrl,
+    demostracion: false,
+  };
+}
+
+function filterClauses(filters: CandidateSearchFilters): object[] {
+  const clauses: object[] = [];
+  const organizacion = filters.organizacion?.trim();
+  const sexo = filters.sexo?.trim();
+  if (organizacion) clauses.push({ list: { organization: { name: organizacion } } });
+  if (sexo) clauses.push({ resume: { is: { sexo } } });
+  if (filters.experienciaElectoral) clauses.push({ resume: { is: { elected: { some: {} } } } });
+  if (filters.sinSentencias) {
+    clauses.push({
+      NOT: {
+        OR: [
+          { resume: { is: { criminal: { some: {} } } } },
+          { resume: { is: { obligation: { some: {} } } } },
+        ],
+      },
+    });
+  }
+  if (filters.primaria) clauses.push({ resume: { is: { primaryCompleted: true } } });
+  if (filters.secundaria) clauses.push({ resume: { is: { secondaryCompleted: true } } });
+  if (filters.superiores) clauses.push({ resume: { is: { education: { some: {} } } } });
+  if (filters.trabajo) clauses.push({ resume: { is: { work: { some: {} } } } });
+  return clauses;
+}
+
+function orderBy(orden: CandidateSearchFilters["orden"]) {
+  const byName = [{ nombres: "asc" as const }, { apellidoPaterno: "asc" as const }, { apellidoMaterno: "asc" as const }];
+  if (orden === "organizacion") return [{ list: { organization: { name: "asc" as const } } }, ...byName];
+  return byName;
 }
 
 function nameFilters(word: string) {
@@ -37,4 +107,8 @@ function nameFilters(word: string) {
 
 function fullName(row: { nombres: string; apellidoPaterno: string; apellidoMaterno: string }): string {
   return [row.nombres, row.apellidoPaterno, row.apellidoMaterno].filter(Boolean).join(" ");
+}
+
+function bySpanish(left: string, right: string): number {
+  return left.localeCompare(right, "es", { sensitivity: "base" });
 }

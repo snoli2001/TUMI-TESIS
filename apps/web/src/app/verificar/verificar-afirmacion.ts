@@ -1,6 +1,8 @@
 import { Component, signal } from "@angular/core";
 import type { ClaimVerdict, FactCheckResult, SourceRef } from "@tumi/contracts";
 import { ApiService } from "../api.service";
+import { etiquetaEstado, etiquetaOrigen, etiquetaPaso, etiquetaTipo } from "../etiquetas";
+import { markdownAHtml } from "../markdown";
 import { SessionService } from "../session.service";
 
 interface NodeState {
@@ -67,6 +69,12 @@ export class VerificarAfirmacionPage {
   sources(): SourceRef[] {
     return this.result()?.sources ?? [];
   }
+
+  etiquetaPaso = etiquetaPaso;
+  etiquetaEstado = etiquetaEstado;
+  etiquetaTipo = etiquetaTipo;
+  etiquetaOrigen = etiquetaOrigen;
+  formato = markdownAHtml;
 
   verdicts(): ClaimVerdict[] {
     return this.result()?.verdicts ?? [];

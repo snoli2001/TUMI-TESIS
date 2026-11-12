@@ -107,13 +107,120 @@ export interface CandidateSummary {
   cargo: string;
   partido: string;
   sigla: string | null;
-  biografia: string;
+  fotoUrl: string | null;
+  logoUrl: string | null;
   demostracion: boolean;
 }
 
+export interface HojaVidaEstudio {
+  universidad: string | null;
+  carrera: string | null;
+  anio: string | null;
+}
+
+export interface HojaVidaTrabajo {
+  ocupacion: string | null;
+  centro: string | null;
+  lugar: string | null;
+  desde: string | null;
+  hasta: string | null;
+}
+
+export interface HojaVidaCargo {
+  organizacion: string | null;
+  cargo: string | null;
+  desde: string | null;
+  hasta: string | null;
+}
+
+export interface HojaVidaRenuncia {
+  organizacion: string | null;
+  anio: string | null;
+}
+
+export interface HojaVidaIngreso {
+  anio: string | null;
+  total: string | null;
+}
+
+export interface HojaVidaInmueble {
+  tipo: string | null;
+  direccion: string | null;
+  autovaluo: string | null;
+}
+
+export interface HojaVidaVehiculo {
+  placa: string | null;
+  valor: string | null;
+}
+
+export interface HojaVidaSentencia {
+  materia: string | null;
+  expediente: string | null;
+  fecha: string | null;
+  fallo: string | null;
+}
+
+export interface HojaVida {
+  sexo: string | null;
+  fechaNacimiento: string | null;
+  cargo: string | null;
+  primariaCompleta: boolean | null;
+  secundariaCompleta: boolean | null;
+  estudios: HojaVidaEstudio[];
+  trabajo: HojaVidaTrabajo[];
+  cargosElectos: HojaVidaCargo[];
+  renuncias: HojaVidaRenuncia[];
+  ingresos: HojaVidaIngreso[];
+  inmuebles: HojaVidaInmueble[];
+  vehiculos: HojaVidaVehiculo[];
+  sentenciasPenales: HojaVidaSentencia[];
+  sentenciasObligacion: HojaVidaSentencia[];
+}
+
+export interface PlanPropuesta {
+  problema: string | null;
+  objetivo: string | null;
+  indicador: string | null;
+  meta: string | null;
+}
+
+export interface PlanDimension {
+  id: string;
+  nombre: string;
+  propuestas: PlanPropuesta[];
+}
+
+export interface PlanGobierno {
+  ideario: string | null;
+  vision: string | null;
+  pdfCompleto: string | null;
+  pdfResumen: string | null;
+  dimensiones: PlanDimension[];
+}
+
 export interface CandidateProfile extends CandidateSummary {
-  planes: Array<{ id: string; titulo: string; resumen: string }>;
-  documentos: Array<{ id: string; titulo: string; url: string | null; origen: string }>;
+  hojaVida: HojaVida | null;
+  plan: PlanGobierno | null;
+}
+
+export interface CandidateSearchResult {
+  resultados: CandidateSummary[];
+  total: number;
+  organizaciones: string[];
+  sexos: string[];
+}
+
+export interface CandidateSearchFilters {
+  organizacion?: string;
+  sexo?: string;
+  orden?: "nombre" | "organizacion";
+  experienciaElectoral?: boolean;
+  sinSentencias?: boolean;
+  primaria?: boolean;
+  secundaria?: boolean;
+  superiores?: boolean;
+  trabajo?: boolean;
 }
 
 export interface HistoryItem {

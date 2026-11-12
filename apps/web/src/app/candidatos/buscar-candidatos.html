@@ -1,24 +1,141 @@
-<h1>Candidatos</h1>
-<p class="muted">Padrón del esquema tumi, en la base de QAS.</p>
-<form (submit)="$event.preventDefault(); search()">
-  <input
-    [value]="q()"
-    (input)="q.set($any($event.target).value)"
-    placeholder="Apellido, nombre o partido"
-  />
-  <button type="submit">Buscar</button>
+<header class="page-intro">
+  <p class="eyebrow">Padrón</p>
+  <h1>Candidatos</h1>
+  <p class="lede">Busca por apellido, nombre o partido. Los filtros se aplican a esa búsqueda.</p>
+</header>
+<form class="composer" (submit)="$event.preventDefault(); search()">
+  <label for="busqueda">Buscar candidato</label>
+  <div class="search-row">
+    <input
+      id="busqueda"
+      [value]="q()"
+      (input)="q.set($any($event.target).value)"
+      placeholder="Apellido, nombre o partido"
+    />
+    <button type="submit">Buscar</button>
+    <button type="button" class="button-secondary filters-open" (click)="openFilters()" [disabled]="!filtersReady()">
+      Filtros
+    </button>
+  </div>
 </form>
-@if (error()) {
-  <p>{{ error() }}</p>
+
+<dialog #filtersDialog class="filters-dialog">
+  <div class="filters-dialog-head">
+    <h2>Filtros</h2>
+    <button type="button" class="button-secondary filters-close" (click)="closeFilters()">Cerrar</button>
+  </div>
+  <div class="filters-grid">
+    <label>
+      <span>Organización</span>
+      <select [disabled]="!filtersReady()" [value]="organizacion()" (change)="setOrganizacion($any($event.target).value)">
+        <option value="">Todas</option>
+        @for (org of orgOptions(); track org) {
+          <option [value]="org">{{ org }}</option>
+        }
+      </select>
+    </label>
+    <label>
+      <span>Sexo declarado</span>
+      <select [disabled]="!filtersReady()" [value]="sexo()" (change)="setSexo($any($event.target).value)">
+        <option value="">Todos</option>
+        @for (option of sexOptions(); track option) {
+          <option [value]="option">{{ option }}</option>
+        }
+      </select>
+    </label>
+    <label>
+      <span>Ordenar por</span>
+      <select [disabled]="!filtersReady()" [value]="orden()" (change)="setOrden($any($event.target).value)">
+        <option value="nombre">Nombre A–Z</option>
+        <option value="organizacion">Organización A–Z</option>
+      </select>
+    </label>
+  </div>
+  <div class="filters-sets">
+    <fieldset class="filters-checks" [disabled]="!filtersReady()">
+      <legend>Evidencia disponible</legend>
+      <label>
+        <input type="checkbox" [checked]="experienciaElectoral()" (change)="setFlag('experienciaElectoral', $any($event.target).checked)" />
+        Experiencia electoral
+      </label>
+      <label>
+        <input type="checkbox" [checked]="sinSentencias()" (change)="setFlag('sinSentencias', $any($event.target).checked)" />
+        Sin sentencias declaradas
+      </label>
+    </fieldset>
+    <fieldset class="filters-checks" [disabled]="!filtersReady()">
+      <legend>Formación y trayectoria declarada</legend>
+      <label>
+        <input type="checkbox" [checked]="primaria()" (change)="setFlag('primaria', $any($event.target).checked)" />
+        Primaria completa
+      </label>
+      <label>
+        <input type="checkbox" [checked]="secundaria()" (change)="setFlag('secundaria', $any($event.target).checked)" />
+        Secundaria completa
+      </label>
+      <label>
+        <input type="checkbox" [checked]="superiores()" (change)="setFlag('superiores', $any($event.target).checked)" />
+        Estudios superiores
+      </label>
+      <label>
+        <input type="checkbox" [checked]="trabajo()" (change)="setFlag('trabajo', $any($event.target).checked)" />
+        Experiencia laboral
+      </label>
+    </fieldset>
+  </div>
+  <div class="filters-actions">
+    <button type="button" class="button-secondary" (click)="clearFilters()" [disabled]="!filtersReady()">Limpiar filtros</button>
+  </div>
+</dialog>
+
+@if (chips().length) {
+  <div class="filter-chips" aria-label="Filtros activos">
+    @for (chip of chips(); track chip.id) {
+      <button type="button" class="chip" (click)="clearChip(chip.id)">
+        {{ chip.label }}
+        <span class="visually-hidden">Quitar filtro</span>
+      </button>
+    }
+    <button type="button" class="button-secondary" (click)="clearFilters()">Limpiar filtros</button>
+  </div>
 }
-@if (!rows().length && !error()) {
+
+@if (error()) {
+  <p class="error">{{ error() }}</p>
+}
+@if (loading()) {
+  <p class="muted">Buscando…</p>
+}
+@if (!searched() && !error() && !loading()) {
   <p class="muted">Escribe al menos un apellido para buscar.</p>
 }
-<div class="grid">
+@if (searched() && !loading() && !error()) {
+  <p class="result-count">{{ rows().length }} de {{ total() }} candidaturas</p>
+}
+@if (searched() && !loading() && !error() && !rows().length) {
+  <p class="muted">Ninguna candidatura coincide con esa búsqueda.</p>
+}
+
+<div class="grid candidate-grid">
   @for (row of rows(); track row.id) {
-    <a class="panel card" [routerLink]="['/candidatos', row.id]">
-      <h2>{{ row.nombre }}</h2>
-      <p>{{ row.cargo }} · {{ row.partido }}</p>
+    <a class="panel card candidate-card" [routerLink]="['/candidatos', row.id]">
+      <span class="avatar">
+        @if (row.fotoUrl && !broken()[row.id]) {
+          <img class="portrait" [src]="row.fotoUrl" [alt]="row.nombre" (error)="markBroken(row.id)" />
+        } @else {
+          <span>{{ initials(row.nombre) }}</span>
+        }
+        @if (row.logoUrl && !broken()['logo:' + row.id]) {
+          <img class="logo-stamp" [src]="row.logoUrl" [alt]="row.partido" (error)="markBroken('logo:' + row.id)" />
+        } @else {
+          <span class="logo-stamp logo-fallback">{{ initials(row.partido) }}</span>
+        }
+      </span>
+      <span class="candidate-copy">
+        <span class="eyebrow">{{ row.partido }}</span>
+        <h2>{{ row.nombre }}</h2>
+        <p>{{ row.cargo }}</p>
+      </span>
     </a>
   }
 </div>

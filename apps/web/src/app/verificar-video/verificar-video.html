@@ -1,10 +1,14 @@
 <section class="layout">
   <div>
-    <p class="eyebrow">Video</p>
-    <h1>Verifica una transcripción con marcas de tiempo.</h1>
-    <p class="muted">Una línea por afirmación. Ejemplo: [00:12] Prometió un tren al Callao.</p>
-    <form (submit)="$event.preventDefault(); submit()">
+    <header class="hero">
+      <p class="eyebrow">Video</p>
+      <h1>Verifica una transcripción con marcas de tiempo.</h1>
+      <p class="lede">Una línea por afirmación. Ejemplo: [00:12] Prometió un tren al Callao.</p>
+    </header>
+    <form class="composer" (submit)="$event.preventDefault(); submit()">
+      <label for="transcripcion">Transcripción</label>
       <textarea
+        id="transcripcion"
         [value]="transcripcion()"
         (input)="transcripcion.set($any($event.target).value)"
         placeholder="[00:12] El candidato prometió una obra.&#10;[01:05] Dijo que el plan ya tiene financiamiento."
@@ -14,12 +18,12 @@
       </button>
     </form>
     @if (error()) {
-      <p class="error">{{ error() }}</p>
+      <p class="error" role="alert">{{ error() }}</p>
     }
     @if (nodes().length) {
-      <ol class="nodes">
+      <ol class="nodes" aria-label="Pasos de la verificación">
         @for (node of nodes(); track node.node) {
-          <li>{{ node.node }} · {{ node.status }}</li>
+          <li [class.live]="node.status === 'start'">{{ etiquetaPaso(node.node) }} · {{ etiquetaEstado(node.status) }}</li>
         }
       </ol>
     }
@@ -33,9 +37,15 @@
             }
           </p>
         }
-        <p class="verdict">{{ afirmacion.verdicts[0]?.verdict?.replace("_", " ") }}</p>
+        <p class="verdict" [attr.data-verdict]="afirmacion.verdicts[0]?.verdict">{{ afirmacion.verdicts[0]?.verdict?.replace("_", " ") }}</p>
         <p>{{ afirmacion.query }}</p>
-        <p class="prose">{{ afirmacion.conclusion }}</p>
+        @for (persona of afirmacion.entities; track persona.id) {
+          <p class="identidad">
+            Se refiere a <strong>{{ persona.nombre }}</strong>
+            <span class="muted">{{ persona.cargo }} · {{ persona.partido }}</span>
+          </p>
+        }
+        <div class="prose" [innerHTML]="formato(afirmacion.conclusion)"></div>
       </article>
     }
   </div>

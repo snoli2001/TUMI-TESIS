@@ -1,6 +1,8 @@
 import { Component, signal } from "@angular/core";
 import type { AfirmacionDeVideo, VerificarVideoResult } from "@tumi/contracts";
 import { ApiService } from "../api.service";
+import { etiquetaEstado, etiquetaPaso } from "../etiquetas";
+import { markdownAHtml } from "../markdown";
 import { SessionService } from "../session.service";
 
 interface NodeState {
@@ -19,6 +21,10 @@ export class VerificarVideoPage {
   error = signal("");
   nodes = signal<NodeState[]>([]);
   afirmaciones = signal<AfirmacionDeVideo[]>([]);
+
+  etiquetaPaso = etiquetaPaso;
+  etiquetaEstado = etiquetaEstado;
+  formato = markdownAHtml;
 
   constructor(
     private readonly api: ApiService,

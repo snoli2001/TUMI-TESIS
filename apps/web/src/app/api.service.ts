@@ -2,7 +2,8 @@ import { HttpClient } from "@angular/common/http";
 import { Injectable } from "@angular/core";
 import type {
   CandidateProfile,
-  CandidateSummary,
+  CandidateSearchFilters,
+  CandidateSearchResult,
   FactCheckResult,
   HistoryItem,
 } from "@tumi/contracts";
@@ -16,8 +17,18 @@ export interface StreamEvent {
 export class ApiService {
   constructor(private readonly http: HttpClient) {}
 
-  candidates(q: string) {
-    return this.http.get<CandidateSummary[]>("/api/candidates", { params: { q } });
+  candidates(q: string, filters: CandidateSearchFilters = {}) {
+    const params: Record<string, string> = { q };
+    if (filters.organizacion) params["organizacion"] = filters.organizacion;
+    if (filters.sexo) params["sexo"] = filters.sexo;
+    if (filters.orden === "organizacion") params["orden"] = "organizacion";
+    if (filters.experienciaElectoral) params["experienciaElectoral"] = "true";
+    if (filters.sinSentencias) params["sinSentencias"] = "true";
+    if (filters.primaria) params["primaria"] = "true";
+    if (filters.secundaria) params["secundaria"] = "true";
+    if (filters.superiores) params["superiores"] = "true";
+    if (filters.trabajo) params["trabajo"] = "true";
+    return this.http.get<CandidateSearchResult>("/api/candidates", { params });
   }
 
   candidate(id: string) {

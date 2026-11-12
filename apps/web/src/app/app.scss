@@ -6,14 +6,15 @@
 .topbar {
   display: flex;
   justify-content: space-between;
-  gap: 1.5rem;
+  gap: 1rem;
   align-items: center;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid var(--line);
-  background: rgba(244, 241, 234, 0.92);
+  padding: 0.85rem 1.25rem;
   position: sticky;
   top: 0;
-  z-index: 2;
+  z-index: 3;
+  background: rgb(239 246 255 / 86%);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgb(191 219 254 / 80%);
 }
 
 .brand {
@@ -22,12 +23,15 @@
   align-items: center;
   color: inherit;
   text-decoration: none;
+  view-transition-name: brand;
+  width: fit-content;
 }
 
 .brand strong {
   display: block;
-  font-family: Literata, serif;
-  letter-spacing: 0.08em;
+  font-family: Outfit, sans-serif;
+  letter-spacing: 0.14em;
+  font-size: 1.05rem;
 }
 
 .brand small {
@@ -35,31 +39,59 @@
 }
 
 .mark {
-  width: 1.7rem;
-  height: 1.7rem;
-  border-radius: 0.35rem 0.35rem 0.9rem 0.35rem;
-  background: linear-gradient(145deg, #c2410c, #7c2d12);
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.7rem;
+  background:
+    linear-gradient(145deg, #3b82f6 0 46%, transparent 46% 100%),
+    linear-gradient(145deg, #1e40af, #16a34a);
 }
 
 nav {
   display: flex;
-  gap: 0.4rem;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: flex-end;
 }
 
 nav a {
   text-decoration: none;
   color: var(--muted);
-  padding: 0.4rem 0.75rem;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.9rem;
   border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 200ms ease, color 200ms ease;
+}
+
+nav a:hover {
+  color: var(--ink);
+  background: rgb(255 255 255 / 70%);
 }
 
 nav a.active {
-  color: var(--ink);
-  background: white;
+  color: var(--color-on-primary);
+  background: var(--color-primary);
 }
 
 main {
   width: min(1120px, calc(100% - 2rem));
   margin: 0 auto;
-  padding: 1.5rem 0 3rem;
+  padding: 1.75rem 0 4rem;
+  view-transition-name: page;
+}
+
+@media (max-width: 700px) {
+  .topbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  nav {
+    width: 100%;
+    justify-content: flex-start;
+  }
 }
