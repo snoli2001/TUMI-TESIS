@@ -56,12 +56,77 @@ const RELLENO = new Set([
   "hasta",
 ]);
 
+const VERBO = new Set([
+  "es",
+  "son",
+  "era",
+  "eran",
+  "fue",
+  "fueron",
+  "esta",
+  "estan",
+  "estaba",
+  "estaban",
+  "estuvo",
+  "sera",
+  "seria",
+  "tiene",
+  "tienen",
+  "tenia",
+  "tuvo",
+  "tuvieron",
+  "ha",
+  "han",
+  "hay",
+  "habia",
+  "puede",
+  "pueden",
+  "podria",
+  "debe",
+  "deben",
+  "dice",
+  "dicen",
+  "dijo",
+  "afirma",
+  "afirman",
+  "niega",
+  "niegan",
+  "miente",
+  "mienten",
+  "postula",
+  "postulan",
+  "promete",
+  "prometio",
+  "ofrece",
+  "ofrecio",
+  "quiere",
+  "quieren",
+  "va",
+  "van",
+  "cometio",
+  "comete",
+  "registra",
+  "figura",
+  "aparece",
+  "resulta",
+  "acusa",
+  "acusan",
+  "roba",
+  "robo",
+  "hace",
+  "hizo",
+]);
+
 export function nombresAlInicio(query: string): string[] {
   const words = query.match(/\p{L}+/gu) ?? [];
   const primero = words[0];
   const segundo = words[1];
-  if (!primero || !segundo || !empiezaEnMayuscula(primero)) return [];
-  if (segundo.length < 3 || RELLENO.has(plegar(segundo))) return [];
+  if (!primero || primero.length < 3 || !segundo || !empiezaEnMayuscula(primero)) return [];
+  const cabeza = plegar(primero);
+  if (RELLENO.has(cabeza) || TITULOS.has(cabeza) || VERBO.has(cabeza)) return [];
+  if (segundo.length < 3 || RELLENO.has(plegar(segundo)) || TITULOS.has(plegar(segundo))) return [];
+  const sigueUnVerbo = words.slice(2).some((word) => VERBO.has(plegar(word)));
+  if (!empiezaEnMayuscula(segundo) && !sigueUnVerbo) return [];
   return [primero, segundo];
 }
 

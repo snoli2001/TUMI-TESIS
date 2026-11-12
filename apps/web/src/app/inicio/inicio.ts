@@ -4,6 +4,15 @@ import type { CandidateSummary, GeoItem } from "@tumi/contracts";
 import { ApiService } from "../api.service";
 
 const DISTRITO_KEY = "tumi.distrito";
+const ORDEN_CARGO = [
+  "GOBERNADOR REGIONAL",
+  "VICEGOBERNADOR REGIONAL",
+  "CONSEJERO REGIONAL",
+  "ALCALDE PROVINCIAL",
+  "REGIDOR PROVINCIAL",
+  "ALCALDE DISTRITAL",
+  "REGIDOR DISTRITAL",
+];
 
 @Component({
   selector: "app-inicio",
@@ -40,7 +49,9 @@ export class InicioPage {
       const key = row.cargo || "Otra contienda";
       groups.set(key, [...(groups.get(key) ?? []), row]);
     }
-    return [...groups.entries()].map(([nombre, candidatos]) => ({ nombre, candidatos }));
+    return [...groups.entries()]
+      .map(([nombre, candidatos]) => ({ nombre, candidatos }))
+      .sort((left, right) => ordenCargo(left.nombre) - ordenCargo(right.nombre));
   });
 
   visibles = computed(() => {
@@ -128,7 +139,8 @@ export class InicioPage {
       .subscribe({
         next: (result) => {
           this.rows.set(result.resultados);
-          this.cargo.set(result.resultados[0]?.cargo ?? "");
+          const cargos = new Set(result.resultados.map((row) => row.cargo));
+          this.cargo.set(ORDEN_CARGO.find((cargo) => cargos.has(cargo)) ?? result.resultados[0]?.cargo ?? "");
           this.loading.set(false);
         },
         error: () => {
@@ -171,4 +183,9 @@ export class InicioPage {
       localStorage.removeItem(DISTRITO_KEY);
     }
   }
+}
+
+function ordenCargo(cargo: string): number {
+  const index = ORDEN_CARGO.indexOf(cargo);
+  return index === -1 ? ORDEN_CARGO.length : index;
 }

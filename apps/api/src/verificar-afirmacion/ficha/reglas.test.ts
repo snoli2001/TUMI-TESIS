@@ -38,6 +38,10 @@ describe("reglas de la ficha", () => {
     assert.equal(regla?.tipo, "fuera");
   });
 
+  it("no confunde el inicio de la frase con otra persona", () => {
+    assert.equal(decidir("Tiene antecedentes judiciales", ficha), null);
+  });
+
   it("marca falso un cargo que no está en el padrón", () => {
     const regla = decidir("Es gobernador regional", ficha);
     assert.equal(regla?.tipo, "veredicto");

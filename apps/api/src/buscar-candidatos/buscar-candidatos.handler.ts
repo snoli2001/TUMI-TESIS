@@ -2,8 +2,10 @@ import { Injectable } from "@nestjs/common";
 import type { CandidateSearchFilters, CandidateSearchResult, CandidateSummary } from "@tumi/contracts";
 import { getPrisma, mediaUrl } from "@tumi/database";
 import { tokens } from "../compartido/texto";
+import { scopeClause } from "./alcance";
 
 const RESULT_LIMIT = 20;
+const CATALOG_LIMIT = 2000;
 
 @Injectable()
 export class BuscarCandidatosHandler {
@@ -25,7 +27,7 @@ export class BuscarCandidatosHandler {
         orderBy: catalogo
           ? [{ cargoEleccion: "asc" }, { nombres: "asc" }, { apellidoPaterno: "asc" }, { apellidoMaterno: "asc" }]
           : orderBy(filters.orden),
-        take: catalogo ? 240 : RESULT_LIMIT,
+        take: catalogo ? CATALOG_LIMIT : RESULT_LIMIT,
       }),
       prisma.organization.findMany({
         where: { lists: { some: { candidates: { some: base } } } },
@@ -68,16 +70,6 @@ function toSummary(row: {
     logoUrl: mediaUrl(row.list.organization.logoR2Key) ?? row.list.organization.logoSourceUrl,
     demostracion: false,
   };
-}
-
-function scopeClause(filters: CandidateSearchFilters): object | null {
-  const distrito = filters.distrito?.trim();
-  const provincia = filters.provincia?.trim();
-  const departamento = filters.departamento?.trim();
-  if (distrito) return { list: { districtCode: distrito } };
-  if (provincia) return { list: { provinceCode: provincia } };
-  if (departamento) return { list: { departmentCode: departamento } };
-  return null;
 }
 
 function filterClauses(filters: CandidateSearchFilters): object[] {

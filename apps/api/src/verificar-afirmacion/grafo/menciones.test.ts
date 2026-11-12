@@ -41,6 +41,12 @@ test("toma el apellido que sigue a un nombre escrito solo con la primera mayúsc
   assert.deepEqual(nombresAlInicio("Lopez aliaga es un violador"), ["Lopez", "aliaga"]);
 });
 
+test("no toma como nombre una frase que empieza por el dato", () => {
+  assert.deepEqual(nombresAlInicio("Tiene antecedentes judiciales"), []);
+  assert.deepEqual(nombresAlInicio("Acumula denuncias graves"), []);
+  assert.deepEqual(nombresAlInicio("Fue Lopez el responsable"), []);
+});
+
 test("una nota que no menciona el hecho no sirve de prueba", () => {
   const nota = {
     origin: "tavily",
