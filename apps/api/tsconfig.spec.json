@@ -6,12 +6,12 @@
     "types": ["node"]
   },
   "include": [
-    "src/verificar-afirmacion/grafo/**/*.ts",
-    "src/verificar-afirmacion/ficha/reglas.ts",
-    "src/verificar-afirmacion/ficha/reglas.test.ts",
-    "src/verificar-afirmacion/evidencia/medios.ts",
-    "src/verificar-afirmacion/evidencia/medios.test.ts",
-    "src/buscar-candidatos/alcance.ts",
-    "src/buscar-candidatos/alcance.test.ts",
+    "src/commands/verify-claim/graph/**/*.ts",
+    "src/commands/verify-claim/profile/reglas.ts",
+    "src/commands/verify-claim/profile/reglas.test.ts",
+    "src/commands/verify-claim/evidence/medios.ts",
+    "src/commands/verify-claim/evidence/medios.test.ts",
+    "src/queries/search-candidates/scope.ts",
+    "src/queries/search-candidates/scope.test.ts",
   ]
 }

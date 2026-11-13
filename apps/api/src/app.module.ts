@@ -1,36 +1,36 @@
 import { Module } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
-import { BuscarCandidatosController } from "./buscar-candidatos/buscar-candidatos.controller";
-import { BuscarCandidatosHandler } from "./buscar-candidatos/buscar-candidatos.handler";
-import { GeoController } from "./geo/geo.controller";
-import { AuthGuard } from "./compartido/auth/auth.guard";
-import { RateLimitGuard } from "./compartido/rate-limit/rate-limit.guard";
-import { RedisService } from "./compartido/redis/redis.service";
-import { HealthController } from "./compartido/salud/health.controller";
-import { ConsultarHistorialController } from "./consultar-historial/consultar-historial.controller";
-import { ConsultarHistorialHandler } from "./consultar-historial/consultar-historial.handler";
-import { VerCandidatoController } from "./ver-candidato/ver-candidato.controller";
-import { VerCandidatoHandler } from "./ver-candidato/ver-candidato.handler";
-import { DecisionsService } from "./verificar-afirmacion/decisiones/decisions.service";
-import { JneSearchService } from "./verificar-afirmacion/evidencia/jne-search.service";
-import { VectorSearchService } from "./verificar-afirmacion/evidencia/vector-search.service";
-import { WebSearchService } from "./verificar-afirmacion/evidencia/web-search.service";
-import { LlmService } from "./verificar-afirmacion/redaccion/llm.service";
-import { VerificarAfirmacionController } from "./verificar-afirmacion/verificar-afirmacion.controller";
-import { VerificarAfirmacionHandler } from "./verificar-afirmacion/verificar-afirmacion.handler";
-import { VerificarVideoController } from "./verificar-video/verificar-video.controller";
-import { VerificarVideoHandler } from "./verificar-video/verificar-video.handler";
-import { ColaVideo } from "./verificar-video/cola-video";
+import { VerifyClaimController } from "./commands/verify-claim/verify-claim.controller";
+import { VerifyClaimHandler } from "./commands/verify-claim/verify-claim.handler";
+import { DecisionsService } from "./commands/verify-claim/decisions/decisions.service";
+import { JneSearchService } from "./commands/verify-claim/evidence/jne-search.service";
+import { VectorSearchService } from "./commands/verify-claim/evidence/vector-search.service";
+import { WebSearchService } from "./commands/verify-claim/evidence/web-search.service";
+import { LlmService } from "./commands/verify-claim/drafting/llm.service";
+import { VerifyVideoController } from "./commands/verify-video/verify-video.controller";
+import { VerifyVideoHandler } from "./commands/verify-video/verify-video.handler";
+import { ColaVideo } from "./commands/verify-video/video-queue";
+import { SearchCandidatesController } from "./queries/search-candidates/search-candidates.controller";
+import { SearchCandidatesHandler } from "./queries/search-candidates/search-candidates.handler";
+import { GeoController } from "./queries/geo/geo.controller";
+import { ViewCandidateController } from "./queries/view-candidate/view-candidate.controller";
+import { ViewCandidateHandler } from "./queries/view-candidate/view-candidate.handler";
+import { ConsultHistoryController } from "./queries/consult-history/consult-history.controller";
+import { ConsultHistoryHandler } from "./queries/consult-history/consult-history.handler";
+import { AuthGuard } from "./shared/auth/auth.guard";
+import { RateLimitGuard } from "./shared/rate-limit/rate-limit.guard";
+import { RedisService } from "./shared/redis/redis.service";
+import { HealthController } from "./shared/health/health.controller";
 
 @Module({
   controllers: [
     HealthController,
-    VerificarAfirmacionController,
-    VerificarVideoController,
-    BuscarCandidatosController,
+    VerifyClaimController,
+    VerifyVideoController,
+    SearchCandidatesController,
     GeoController,
-    VerCandidatoController,
-    ConsultarHistorialController,
+    ViewCandidateController,
+    ConsultHistoryController,
   ],
   providers: [
     RedisService,
@@ -39,12 +39,12 @@ import { ColaVideo } from "./verificar-video/cola-video";
     JneSearchService,
     VectorSearchService,
     WebSearchService,
-    VerificarAfirmacionHandler,
+    VerifyClaimHandler,
     ColaVideo,
-    VerificarVideoHandler,
-    BuscarCandidatosHandler,
-    VerCandidatoHandler,
-    ConsultarHistorialHandler,
+    VerifyVideoHandler,
+    SearchCandidatesHandler,
+    ViewCandidateHandler,
+    ConsultHistoryHandler,
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_GUARD, useClass: RateLimitGuard },
   ],

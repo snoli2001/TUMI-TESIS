@@ -6,7 +6,7 @@
     "dev": "nest start --watch",
     "build": "nest build",
     "start": "node dist/main.js",
-    "test": "tsc -p tsconfig.spec.json && node --test dist-test/verificar-afirmacion/grafo/pipeline.test.js dist-test/verificar-afirmacion/grafo/menciones.test.js dist-test/verificar-afirmacion/evidencia/medios.test.js dist-test/verificar-afirmacion/ficha/reglas.test.js dist-test/buscar-candidatos/alcance.test.js"
+    "test": "tsc -p tsconfig.spec.json && node --test dist-test/commands/verify-claim/graph/pipeline.test.js dist-test/commands/verify-claim/graph/menciones.test.js dist-test/commands/verify-claim/evidence/medios.test.js dist-test/commands/verify-claim/profile/reglas.test.js dist-test/queries/search-candidates/scope.test.js"
   },
   "dependencies": {
     "@langchain/core": "^1.1.16",

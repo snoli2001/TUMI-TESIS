@@ -6,8 +6,8 @@ Sin `OPENAI_API_KEY` el stack arranca igual. La consulta queda en modo demostrac
 
 ## Piezas
 
-- `apps/web` — cortes `verificar`, `verificar-video`, `candidatos` e `historial`
-- `apps/api` — un corte por caso de uso. El grafo de cinco agentes vive en `verificar-afirmacion`
+- `apps/web` — cortes `home`, `verify-claim`, `verify-video`, `candidates` e `history`
+- `apps/api` — comandos y consultas. El grafo de cinco agentes vive en `commands/verify-claim`
 - `apps/worker` — cola BullMQ. Indexa en Qdrant el PDF resumen del plan de cada lista.
 - `packages/contracts` — tipos compartidos y umbral del veredicto
 - `packages/database` — cliente Prisma sobre el esquema `tumi`
@@ -72,7 +72,7 @@ Abre `http://localhost:8080`. El API no se publica: nginx en `web` proxea `/api`
 
 El aporte es una verificación trazable de afirmaciones electorales. El veredicto lo clasifica la Decisions API. El modelo generativo solo redacta la explicación. El video entra como un caso de uso más: convierte una pieza pública en afirmaciones con marca de tiempo y las pasa por el mismo grafo de cinco agentes.
 
-Hoy la API está ordenada por tecnología (`agents`, `llm`, `tools`, `decisions`). El corte objetivo nombra el caso de uso, aísla cada caso en su carpeta y separa escribir un veredicto de leer el padrón.
+La API separa escribir un veredicto de leer el padrón. Los comandos viven en `commands` y las consultas en `queries`. Redis, el guard de acceso y el límite de tasa quedan en `shared`.
 
 ```mermaid
 flowchart LR
@@ -98,7 +98,7 @@ flowchart LR
 
 2. **Nombrar los casos de uso con lenguaje de dominio.** Cinco capacidades: verificar afirmación, verificar video, buscar candidato, ver candidato y consultar historial. Cada una tiene entrada, salida y regla de negocio en `@tumi/contracts`. El contrato del video incluye la URL o el archivo, la transcripción, las afirmaciones y el segundo en el que aparece cada una.
 
-3. **Reorganizar la API en cortes verticales.** Cada caso de uso queda en su carpeta, con su controlador, su handler y su prueba. El grafo (`identificacion` → `extraccion` → `recuperacion` → `verificacion` → `explicacion`) vive dentro de `verificar-afirmacion`. Redis, Prisma, el guard de acceso y el límite de tasa se quedan en `compartido`. La web sigue el mismo corte: `verificar`, `candidatos` e `historial`.
+3. **Reorganizar la API en cortes verticales.** Cada caso de uso queda en su carpeta, con su controlador, su handler y su prueba. El grafo (`identificacion` → `extraccion` → `recuperacion` → `verificacion` → `explicacion`) vive dentro de `commands/verify-claim`. Redis, Prisma, el guard de acceso y el límite de tasa se quedan en `shared`. La web sigue el mismo corte: `verify-claim`, `verify-video`, `candidates` e `history`.
 
 4. **Separar comandos y consultas.** Un comando cambia estado: abre una `fact_session`, ejecuta el grafo y guarda el `fact_turn`. Una consulta solo lee: busca en `tumi.candidates` o lista turnos con `role = assistant`. El controlador de un comando no reutiliza el handler de una consulta. Event sourcing queda fuera de este alcance.
 
@@ -118,19 +118,22 @@ flowchart LR
 
 ```text
 apps/api/src/
-  verificar-afirmacion/
-  verificar-video/
-  buscar-candidatos/
-  ver-candidato/
-  consultar-historial/
-  compartido/
+  commands/
+    verify-claim/
+    verify-video/
+  queries/
+    search-candidates/
+    view-candidate/
+    consult-history/
+    geo/
+  shared/
 ```
 
-Esa estructura ya está en `apps/api/src` y en `apps/web/src/app`. Cada corte tiene su controlador y su handler. Los comandos (`verificar-afirmacion`, `verificar-video`) escriben `fact_turns`. Las consultas (`buscar-candidatos`, `ver-candidato`, `consultar-historial`) solo leen.
+Esa estructura ya está en `apps/api/src`. La web usa los mismos nombres de caso de uso en `home`, `verify-claim`, `verify-video`, `candidates` e `history`. Cada corte tiene su controlador y su handler. Los comandos (`verify-claim`, `verify-video`) escriben `fact_turns`. Las consultas (`search-candidates`, `view-candidate`, `consult-history`, `geo`) solo leen.
 
 ### Verificar video
 
-El incremento actual acepta una URL pública de YouTube de hasta 4 minutos en `POST /api/verificar-video/stream`, o una transcripción pegada. El worker baja el audio y lo transcribe con marcas de tiempo. Cada afirmación pasa por el grafo de `verificar-afirmacion`. La pantalla está en `/video` y el reproductor abre el segundo citado.
+El incremento actual acepta una URL pública de YouTube de hasta 4 minutos en `POST /api/verificar-video/stream`, o una transcripción pegada. El worker baja el audio y lo transcribe con marcas de tiempo. Cada afirmación pasa por el grafo de `commands/verify-claim`. La pantalla está en `/video` y el reproductor abre el segundo citado.
 
 | Pieza | Responsabilidad |
 | --- | --- |

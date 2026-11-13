@@ -1,16 +1,16 @@
 import { Routes } from "@angular/router";
-import { InicioPage } from "./inicio/inicio";
-import { BuscarCandidatosPage } from "./candidatos/buscar-candidatos";
-import { VerCandidatoPage } from "./candidatos/ver-candidato";
-import { ConsultarHistorialPage } from "./historial/consultar-historial";
-import { VerificarAfirmacionPage } from "./verificar/verificar-afirmacion";
-import { VerificarVideoPage } from "./verificar-video/verificar-video";
+import { HomePage } from "./home/home";
+import { SearchCandidatesPage } from "./candidates/search-candidates";
+import { ViewCandidatePage } from "./candidates/view-candidate";
+import { ConsultHistoryPage } from "./history/consult-history";
+import { VerifyClaimPage } from "./verify-claim/verify-claim";
+import { VerifyVideoPage } from "./verify-video/verify-video";
 
 export const routes: Routes = [
-  { path: "", component: InicioPage },
-  { path: "consulta", component: VerificarAfirmacionPage },
-  { path: "video", component: VerificarVideoPage },
-  { path: "candidatos", component: BuscarCandidatosPage },
-  { path: "candidatos/:id", component: VerCandidatoPage },
-  { path: "historial", component: ConsultarHistorialPage },
+  { path: "", component: HomePage },
+  { path: "consulta", component: VerifyClaimPage },
+  { path: "video", component: VerifyVideoPage },
+  { path: "candidatos", component: SearchCandidatesPage },
+  { path: "candidatos/:id", component: ViewCandidatePage },
+  { path: "historial", component: ConsultHistoryPage },
 ];
