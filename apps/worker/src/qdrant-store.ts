@@ -7,6 +7,8 @@ const INDEXES = [
   { field_name: "origen", field_schema: "keyword" },
   { field_name: "codigoExpediente", field_schema: "keyword" },
   { field_name: "sessionId", field_schema: "keyword" },
+  { field_name: "hojaVidaId", field_schema: "keyword" },
+  { field_name: "documentId", field_schema: "keyword" },
   { field_name: "pagina", field_schema: "integer" },
 ] as const;
 
@@ -60,6 +62,37 @@ export async function planAlreadyIndexed(codigoExpediente: string): Promise<bool
     with_vector: false,
   });
   return found.points.length > 0;
+}
+
+export async function deleteDocumentPoints(documentId: string): Promise<void> {
+  await ensureCollection();
+  await openQdrant().delete(EVIDENCE_COLLECTION, {
+    wait: true,
+    filter: { must: [{ key: "documentId", match: { value: documentId } }] },
+  });
+}
+
+export async function upsertDocumentChunks(
+  chunks: Array<{ id: string; texto: string; titulo: string; pagina: number; hojaVidaId: string; documentId: string }>,
+  vectors: number[][],
+): Promise<void> {
+  await ensureCollection();
+  await openQdrant().upsert(EVIDENCE_COLLECTION, {
+    wait: true,
+    points: chunks.map((chunk, index) => ({
+      id: pointId(chunk.id),
+      vector: vectors[index] ?? [],
+      payload: {
+        fragmentoId: chunk.id,
+        texto: chunk.texto,
+        titulo: chunk.titulo,
+        origen: "documento",
+        pagina: chunk.pagina,
+        hojaVidaId: chunk.hojaVidaId,
+        documentId: chunk.documentId,
+      },
+    })),
+  });
 }
 
 export async function upsertChunks(chunks: PlanChunk[], vectors: number[][]): Promise<void> {

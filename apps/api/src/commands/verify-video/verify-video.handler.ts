@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import {
   idDeYoutube,
@@ -23,6 +22,8 @@ export class VerifyVideoHandler {
   ) {}
 
   async execute(request: VerificarVideoRequest, hooks: StreamHooks): Promise<VerificarVideoResult> {
+    const sessionId = request.sessionId;
+    if (!sessionId) throw new Error("Falta la sesión");
     let videoId: string | null = request.url ? idDeYoutube(request.url) : null;
     let titulo: string | null = null;
     let transcripcion = request.transcripcion?.trim() ?? "";
@@ -37,7 +38,7 @@ export class VerifyVideoHandler {
       } catch (error) {
         const mensaje = mensajeNoVerificable(error);
         hooks.onNode("transcripcion", "done");
-        if (mensaje) return this.degradado(request.sessionId, request.url, mensaje, videoId);
+        if (mensaje) return this.degradado(sessionId, request.url, mensaje, videoId);
         throw new Error("No se pudo transcribir el video. Inténtalo de nuevo.");
       }
       hooks.onNode("transcripcion", "done");
@@ -45,7 +46,7 @@ export class VerifyVideoHandler {
 
     if (transcripcion.length < 3) {
       return this.degradado(
-        request.sessionId,
+        sessionId,
         request.url ?? transcripcion,
         "No se pudo extraer voz de este video.",
         videoId,
@@ -54,12 +55,12 @@ export class VerifyVideoHandler {
 
     const segmentos = segmentar(transcripcion);
     const afirmaciones: AfirmacionDeVideo[] = [];
-    let sessionId = request.sessionId;
+    let activeSession = sessionId;
 
     for (const [index, segmento] of segmentos.entries()) {
       hooks.onNode(`afirmacion ${index + 1}`, "start");
-      const result = await this.afirmacion.execute({ query: segmento.texto, sessionId }, hooks);
-      sessionId = result.sessionId;
+      const result = await this.afirmacion.execute({ query: segmento.texto, sessionId: activeSession }, hooks);
+      activeSession = result.sessionId;
       await anclarTurno(result.id, segmento);
       afirmaciones.push({
         ...result,
@@ -69,25 +70,18 @@ export class VerifyVideoHandler {
       hooks.onNode(`afirmacion ${index + 1}`, "done");
     }
 
-    return { sessionId: sessionId ?? "", videoId, titulo, afirmaciones };
+    return { sessionId: activeSession, videoId, titulo, afirmaciones };
   }
 
   private async degradado(
-    sessionId: string | undefined,
+    sessionId: string,
     consulta: string,
     mensaje: string,
     videoId: string | null,
   ): Promise<VerificarVideoResult> {
-    const id = normalizeSessionId(sessionId);
-    const prisma = getPrisma();
-    await prisma.factSession.upsert({
-      where: { id },
-      create: { id },
-      update: {},
-    });
-    const turn = await prisma.factTurn.create({
+    const turn = await getPrisma().factTurn.create({
       data: {
-        sessionId: id,
+        sessionId,
         role: "assistant",
         content: mensaje,
         verdict: "no_verificable",
@@ -96,13 +90,13 @@ export class VerifyVideoHandler {
       },
     });
     return {
-      sessionId: id,
+      sessionId,
       videoId,
       titulo: null,
       afirmaciones: [
         {
           id: turn.id.toString(),
-          sessionId: id,
+          sessionId,
           query: consulta,
           conclusion: mensaje,
           degraded: true,
@@ -143,13 +137,6 @@ async function anclarTurno(turnId: string, segmento: VideoSegmento): Promise<voi
       ),
     },
   });
-}
-
-function normalizeSessionId(value: string | undefined): string {
-  if (value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
-    return value;
-  }
-  return randomUUID();
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

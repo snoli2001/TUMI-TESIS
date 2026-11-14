@@ -1,0 +1,89 @@
+<header class="page-intro">
+  <p class="eyebrow">Gestor de información</p>
+  <h1>Documentos de un candidato</h1>
+  <p class="lede">Varios PDF quedan ligados al candidato y solo entran en sus verificaciones.</p>
+</header>
+
+@if (!profile()) {
+  <form class="panel" (submit)="$event.preventDefault(); login()">
+    <label>
+      Correo
+      <input type="email" autocomplete="username" [value]="email()" (input)="field(email, $event)" />
+    </label>
+    <label>
+      Contraseña
+      <input type="password" autocomplete="current-password" [value]="password()" (input)="field(password, $event)" />
+    </label>
+    <button type="submit" [disabled]="busy()">Entrar</button>
+  </form>
+} @else {
+  <p class="muted">Sesión de {{ profile()?.name }} · {{ profile()?.email }}</p>
+  <button type="button" class="button-secondary" (click)="logout()">Cerrar sesión</button>
+
+  <form class="panel" (submit)="$event.preventDefault(); upload()">
+    <label>
+      Buscar candidato
+      <input [value]="query()" (input)="field(query, $event)" (change)="search()" />
+    </label>
+    <button type="button" class="button-secondary" (click)="search()">Buscar</button>
+    @if (candidates().length) {
+      <ul class="gestor-list">
+        @for (candidate of candidates(); track candidate.id) {
+          <li>
+            <button type="button" class="button-secondary" (click)="choose(candidate)">
+              {{ candidate.nombre }} · {{ candidate.cargo }}
+            </button>
+          </li>
+        }
+      </ul>
+    }
+    @if (candidateLabel()) {
+      <p class="muted">Candidato elegido: {{ candidateLabel() }}</p>
+    }
+    <label>
+      PDF
+      <input type="file" accept="application/pdf,.pdf" multiple (change)="pickFiles($event)" />
+    </label>
+    <button type="submit" [disabled]="busy() || files().length === 0 || !hojaVidaId()">Cargar PDF</button>
+    <button type="button" class="button-secondary" (click)="retain()" [disabled]="busy()">Aplicar retención</button>
+  </form>
+
+  @if (documents().length) {
+    <ul class="gestor-list">
+      @for (document of documents(); track document.id) {
+        <li class="panel">
+          <strong>{{ document.originalName }}</strong>
+          <p>Estado: {{ document.status }}</p>
+          @if (document.pageCount !== null) {
+            <p class="muted">Páginas leídas: {{ document.pageCount }}</p>
+          }
+          <button type="button" class="button-secondary" (click)="remove(document.id)" [disabled]="busy()">Retirar</button>
+        </li>
+      }
+    </ul>
+  }
+
+  <form class="panel" (submit)="$event.preventDefault(); createAccount()">
+    <h2>Otro gestor</h2>
+    <label>
+      Nombre
+      <input [value]="accountName()" (input)="field(accountName, $event)" />
+    </label>
+    <label>
+      Correo
+      <input type="email" [value]="accountEmail()" (input)="field(accountEmail, $event)" />
+    </label>
+    <label>
+      Contraseña
+      <input type="password" [value]="accountPassword()" (input)="field(accountPassword, $event)" />
+    </label>
+    <button type="submit" class="button-secondary" [disabled]="busy()">Crear cuenta</button>
+  </form>
+}
+
+@if (error()) {
+  <p>{{ error() }}</p>
+}
+@if (message()) {
+  <p class="muted">{{ message() }}</p>
+}

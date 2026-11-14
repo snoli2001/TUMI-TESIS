@@ -1,6 +1,8 @@
-import { Body, Controller, Post, Res } from "@nestjs/common";
+import { Body, Controller, Headers, Post, Res } from "@nestjs/common";
 import type { Response } from "express";
 import { verificarVideoRequestSchema } from "@tumi/contracts";
+import { sendHttpError } from "../../shared/http-error";
+import { openSession } from "../../shared/session/session-access";
 import { VerifyVideoHandler } from "./verify-video.handler";
 
 @Controller("verificar-video")
@@ -8,13 +10,24 @@ export class VerifyVideoController {
   constructor(private readonly video: VerifyVideoHandler) {}
 
   @Post("stream")
-  async stream(@Body() body: unknown, @Res() response: Response): Promise<void> {
+  async stream(
+    @Body() body: unknown,
+    @Headers("x-session-key") accessKey: string | undefined,
+    @Res() response: Response,
+  ): Promise<void> {
     const parsed = verificarVideoRequestSchema.safeParse(body);
     if (!parsed.success) {
       response.status(400).json({
         message: parsed.error.issues[0]?.message ?? "Transcripción inválida",
       });
       return;
+    }
+    let sessionId: string;
+    try {
+      sessionId = await openSession(parsed.data.sessionId, accessKey);
+    } catch (error) {
+      if (sendHttpError(response, error)) return;
+      throw error;
     }
 
     response.setHeader("Content-Type", "text/event-stream; charset=utf-8");
@@ -27,7 +40,7 @@ export class VerifyVideoController {
     };
 
     try {
-      const result = await this.video.execute(parsed.data, {
+      const result = await this.video.execute({ ...parsed.data, sessionId }, {
         onNode: (node, status) => send("node", { node, status }),
         onDecision: (payload) => send("decision", payload),
         onToken: (text) => send("token", { text }),

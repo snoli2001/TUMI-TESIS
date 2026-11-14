@@ -1,7 +1,10 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from "@nestjs/common";
 import { Queue, Worker } from "bullmq";
 import Redis from "ioredis";
+import { sweepRetention } from "@tumi/database";
+import { indexUploadedDocument } from "./index-document";
 import { indexNextBatch } from "./plan-index";
+import { deleteDocumentPoints } from "./qdrant-store";
 import { transcribirYoutube } from "./transcribir-youtube";
 
 const QUEUE = "tumi-jobs";
@@ -12,6 +15,7 @@ export class IngestService implements OnModuleInit, OnModuleDestroy {
   private queue: Queue | null = null;
   private worker: Worker | null = null;
   private connections: Redis[] = [];
+  private retentionTimer: ReturnType<typeof setInterval> | null = null;
 
   async onModuleInit(): Promise<void> {
     const url = process.env.REDIS_URL ?? "redis://localhost:6379";
@@ -32,9 +36,12 @@ export class IngestService implements OnModuleInit, OnModuleDestroy {
       {},
       { jobId: "indexar-planes", removeOnComplete: true, removeOnFail: 20 },
     );
+    void this.retain();
+    this.retentionTimer = setInterval(() => void this.retain(), 60 * 60 * 1000);
   }
 
   async onModuleDestroy(): Promise<void> {
+    if (this.retentionTimer) clearInterval(this.retentionTimer);
     await this.worker?.close();
     await this.queue?.close();
     for (const connection of this.connections) connection.disconnect();
@@ -44,6 +51,11 @@ export class IngestService implements OnModuleInit, OnModuleDestroy {
     if (name === "transcribir-youtube") {
       const url = isRecord(data) && typeof data.url === "string" ? data.url : "";
       return transcribirYoutube(url);
+    }
+    if (name === "indexar-documento") {
+      const documentId = isRecord(data) && typeof data.documentId === "string" ? data.documentId : "";
+      if (documentId) await indexUploadedDocument(documentId);
+      return undefined;
     }
     if (name !== "indexar-planes") return undefined;
     const after = isRecord(data) && typeof data.after === "string" ? data.after : undefined;
@@ -57,6 +69,15 @@ export class IngestService implements OnModuleInit, OnModuleDestroy {
         { after: batch.next },
         { removeOnComplete: true, removeOnFail: 20 },
       );
+    }
+  }
+
+  private async retain(): Promise<void> {
+    try {
+      const result = await sweepRetention(deleteDocumentPoints);
+      this.logger.log(`Retención: ${result.sessions} sesiones, ${result.documents} documentos`);
+    } catch (error) {
+      this.logger.error(`Retención falló: ${error instanceof Error ? error.message : error}`);
     }
   }
 }

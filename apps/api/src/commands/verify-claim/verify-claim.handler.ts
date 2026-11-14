@@ -38,13 +38,8 @@ export class VerifyClaimHandler implements OnModuleInit {
 
   async execute(request: FactCheckRequest, hooks: StreamHooks): Promise<FactCheckResult> {
     if (!this.graph || !this.checkpointer) throw new Error("El grafo todavía no está listo");
-    const prisma = getPrisma();
-    const sessionId = normalizeSessionId(request.sessionId);
-    await prisma.factSession.upsert({
-      where: { id: sessionId },
-      create: { id: sessionId },
-      update: {},
-    });
+    const sessionId = request.sessionId;
+    if (!sessionId) throw new Error("Falta la sesión");
 
     if (request.hojaVidaId) {
       const ficha = await cargarFicha(request.hojaVidaId);
@@ -206,9 +201,10 @@ export class VerifyClaimHandler implements OnModuleInit {
         const codigoExpedientes = ficha
           ? [ficha.codigoExpediente ?? "__sin_expediente__"]
           : await this.vectors.expedientesDe(entities.map((entity) => entity.id));
+        const hojaVidaIds = ficha ? [ficha.id] : entities.map((entity) => entity.id);
         const webQuery = ficha ? consultaWeb(ficha.nombreCorto, text, ficha.nombre) : text;
         const [local, remote] = await Promise.all([
-          this.vectors.search(text, { codigoExpedientes, sessionId }),
+          this.vectors.search(text, { codigoExpedientes, sessionId, hojaVidaIds }),
           this.web.search(webQuery),
         ]);
         return [...(ficha ? hojaDe(ficha) : []), ...local, ...remote];
@@ -262,13 +258,6 @@ export class VerifyClaimHandler implements OnModuleInit {
       return new MemorySaver();
     }
   }
-}
-
-function normalizeSessionId(value: string | undefined): string {
-  if (value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
-    return value;
-  }
-  return crypto.randomUUID();
 }
 
 function marcarApodo(entities: EntityRef[], alias: string[]): EntityRef[] {

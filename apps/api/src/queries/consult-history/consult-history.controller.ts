@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from "@nestjs/common";
+import { Controller, Get, Headers, Query } from "@nestjs/common";
 import type { HistoryItem } from "@tumi/contracts";
 import { ConsultHistoryHandler } from "./consult-history.handler";
 
@@ -7,7 +7,10 @@ export class ConsultHistoryController {
   constructor(private readonly historial: ConsultHistoryHandler) {}
 
   @Get()
-  list(@Query("sessionId") sessionId?: string): Promise<HistoryItem[]> {
-    return this.historial.execute(sessionId);
+  list(
+    @Query("sessionId") sessionId?: string,
+    @Headers("x-session-key") accessKey?: string,
+  ): Promise<HistoryItem[]> {
+    return this.historial.execute(sessionId, accessKey);
   }
 }

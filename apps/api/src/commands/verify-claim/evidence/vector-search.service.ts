@@ -25,6 +25,17 @@ export class VectorSearchService {
     return openQdrant();
   }
 
+  private async readyDocumentOwners(hojaVidaIds: string[]): Promise<string[]> {
+    const ids = [...new Set(hojaVidaIds.filter((id) => id.length > 0))];
+    if (ids.length === 0) return [];
+    const rows = await getPrisma().candidateDocument.findMany({
+      where: { hojaVidaId: { in: ids }, status: "ready", deletedAt: null },
+      select: { hojaVidaId: true },
+      distinct: ["hojaVidaId"],
+    });
+    return rows.map((row) => row.hojaVidaId);
+  }
+
   async expedientesDe(hojaVidaIds: string[]): Promise<string[]> {
     const ids = [...new Set(hojaVidaIds.filter((id) => id.length > 0))];
     if (ids.length === 0) return [];
@@ -56,9 +67,19 @@ export class VectorSearchService {
     return usable.length;
   }
 
+  async deleteByDocument(documentId: string): Promise<void> {
+    await this.ensureCollection();
+    await this.client().delete(EVIDENCE_COLLECTION, {
+      wait: true,
+      filter: { must: [{ key: "documentId", match: { value: documentId } }] },
+    });
+  }
+
   async search(query: string, scope: EvidenceScope): Promise<EvidenceItem[]> {
-    const lexical = await this.searchPostgres(query, scope.codigoExpedientes);
-    const semantic = await this.searchQdrant(query, scope);
+    const hojaVidaIds = await this.readyDocumentOwners(scope.hojaVidaIds ?? []);
+    const narrowed = { ...scope, hojaVidaIds };
+    const lexical = await this.searchPostgres(query, narrowed.codigoExpedientes);
+    const semantic = await this.searchQdrant(query, narrowed);
     const merged = new Map<string, EvidenceItem>();
     for (const item of [...semantic, ...lexical]) merged.set(item.id, item);
     return this.conEnlace([...merged.values()].slice(0, 12));

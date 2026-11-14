@@ -17,7 +17,15 @@ import { ViewCandidateController } from "./queries/view-candidate/view-candidate
 import { ViewCandidateHandler } from "./queries/view-candidate/view-candidate.handler";
 import { ConsultHistoryController } from "./queries/consult-history/consult-history.controller";
 import { ConsultHistoryHandler } from "./queries/consult-history/consult-history.handler";
+import { GestorDocumentsController } from "./commands/manage-documents/gestor-documents.controller";
+import { GestorAuthController } from "./commands/manage-documents/gestor-auth.controller";
+import { UploadDocumentHandler } from "./commands/manage-documents/upload-document.handler";
+import { DeleteDocumentHandler } from "./commands/manage-documents/delete-document.handler";
+import { ApplyRetentionHandler } from "./commands/manage-documents/apply-retention.handler";
+import { DocumentQueue } from "./commands/manage-documents/document-queue";
 import { AuthGuard } from "./shared/auth/auth.guard";
+import { GestorAccounts } from "./shared/auth/gestor-accounts";
+import { GestorGuard } from "./shared/auth/gestor.guard";
 import { RateLimitGuard } from "./shared/rate-limit/rate-limit.guard";
 import { RedisService } from "./shared/redis/redis.service";
 import { HealthController } from "./shared/health/health.controller";
@@ -31,6 +39,8 @@ import { HealthController } from "./shared/health/health.controller";
     GeoController,
     ViewCandidateController,
     ConsultHistoryController,
+    GestorAuthController,
+    GestorDocumentsController,
   ],
   providers: [
     RedisService,
@@ -45,6 +55,12 @@ import { HealthController } from "./shared/health/health.controller";
     SearchCandidatesHandler,
     ViewCandidateHandler,
     ConsultHistoryHandler,
+    DocumentQueue,
+    UploadDocumentHandler,
+    DeleteDocumentHandler,
+    ApplyRetentionHandler,
+    GestorAccounts,
+    GestorGuard,
     { provide: APP_GUARD, useClass: AuthGuard },
     { provide: APP_GUARD, useClass: RateLimitGuard },
   ],

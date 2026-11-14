@@ -263,11 +263,54 @@ model PlanProposal {
   @@schema("tumi")
 }
 
+model Gestor {
+  id           String          @id @db.Uuid
+  email        String          @unique
+  name         String
+  passwordHash String          @map("password_hash")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  sessions     GestorSession[]
+
+  @@map("gestors")
+  @@schema("tumi")
+}
+
+model GestorSession {
+  id        String   @id @db.Uuid
+  gestorId  String   @map("gestor_id") @db.Uuid
+  tokenHash String   @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  gestor    Gestor   @relation(fields: [gestorId], references: [id], onDelete: Cascade)
+
+  @@index([gestorId])
+  @@map("gestor_sessions")
+  @@schema("tumi")
+}
+
 model FactSession {
-  id    String     @id @db.Uuid
-  turns FactTurn[]
+  id            String     @id @db.Uuid
+  accessKeyHash String?    @map("access_key_hash")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  turns         FactTurn[]
 
   @@map("fact_sessions")
+  @@schema("tumi")
+}
+
+model CandidateDocument {
+  id           String    @id @db.Uuid
+  hojaVidaId   String    @map("hoja_vida_id")
+  originalName String    @map("original_name")
+  storageName  String    @unique @map("storage_name")
+  byteSize     Int       @map("byte_size")
+  status       String    @default("pending")
+  pageCount    Int?      @map("page_count")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  @@index([hojaVidaId, status])
+  @@map("candidate_documents")
   @@schema("tumi")
 }
 

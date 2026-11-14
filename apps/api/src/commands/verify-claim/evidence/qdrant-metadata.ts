@@ -1,4 +1,4 @@
-export const EVIDENCE_ORIGINS = ["plan", "adjunto"] as const;
+export const EVIDENCE_ORIGINS = ["plan", "adjunto", "documento"] as const;
 export type EvidenceOrigin = (typeof EVIDENCE_ORIGINS)[number];
 
 export interface EvidenceChunk {
@@ -10,17 +10,22 @@ export interface EvidenceChunk {
   codigoExpediente: string | null;
   pagina: number | null;
   sessionId: string | null;
+  hojaVidaId?: string | null;
+  documentId?: string | null;
 }
 
 export interface EvidenceScope {
   codigoExpedientes: string[];
   sessionId?: string;
+  hojaVidaIds?: string[];
 }
 
 export const PAYLOAD_INDEXES = [
   { field_name: "origen", field_schema: "keyword" },
   { field_name: "codigoExpediente", field_schema: "keyword" },
   { field_name: "sessionId", field_schema: "keyword" },
+  { field_name: "hojaVidaId", field_schema: "keyword" },
+  { field_name: "documentId", field_schema: "keyword" },
   { field_name: "pagina", field_schema: "integer" },
 ] as const;
 
@@ -47,6 +52,15 @@ export function evidenceFilter(scope: EvidenceScope): EvidenceFilter | null {
       ],
     });
   }
+  const hojas = (scope.hojaVidaIds ?? []).filter((value) => value.length > 0);
+  if (hojas.length > 0) {
+    should.push({
+      must: [
+        { key: "origen", match: { value: "documento" } },
+        { key: "hojaVidaId", match: { any: hojas } },
+      ],
+    });
+  }
   return should.length > 0 ? { should } : null;
 }
 
@@ -56,6 +70,9 @@ export function chunkPayload(chunk: EvidenceChunk): Record<string, string | numb
   }
   if (chunk.origen === "adjunto" && !chunk.sessionId) {
     throw new Error("Un fragmento adjunto necesita sessionId");
+  }
+  if (chunk.origen === "documento" && (!chunk.hojaVidaId || !chunk.documentId)) {
+    throw new Error("Un fragmento de documento necesita hojaVidaId y documentId");
   }
   const payload: Record<string, string | number> = {
     fragmentoId: chunk.id,
@@ -67,5 +84,7 @@ export function chunkPayload(chunk: EvidenceChunk): Record<string, string | numb
   if (chunk.codigoExpediente) payload.codigoExpediente = chunk.codigoExpediente;
   if (chunk.pagina !== null) payload.pagina = chunk.pagina;
   if (chunk.sessionId) payload.sessionId = chunk.sessionId;
+  if (chunk.hojaVidaId) payload.hojaVidaId = chunk.hojaVidaId;
+  if (chunk.documentId) payload.documentId = chunk.documentId;
   return payload;
 }

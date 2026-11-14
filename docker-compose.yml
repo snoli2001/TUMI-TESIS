@@ -35,6 +35,14 @@ services:
       JNE_API_BASE_URL: ${JNE_API_BASE_URL:-}
       AUTH_ENABLED: ${AUTH_ENABLED:-false}
       API_TOKEN: ${API_TOKEN:-}
+      GESTOR_EMAIL: ${GESTOR_EMAIL:-}
+      GESTOR_PASSWORD: ${GESTOR_PASSWORD:-}
+      CONSULTA_RETENTION_DAYS: ${CONSULTA_RETENTION_DAYS:-30}
+      DOCUMENT_RETENTION_DAYS: ${DOCUMENT_RETENTION_DAYS:-365}
+      DOCUMENT_MAX_BYTES: ${DOCUMENT_MAX_BYTES:-15728640}
+      DOCUMENT_DIR: /data/documents
+    volumes:
+      - documents:/data/documents
     depends_on:
       redis:
         condition: service_healthy
@@ -68,6 +76,11 @@ services:
       QDRANT_API_KEY: ${QDRANT_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-large}
+      CONSULTA_RETENTION_DAYS: ${CONSULTA_RETENTION_DAYS:-30}
+      DOCUMENT_RETENTION_DAYS: ${DOCUMENT_RETENTION_DAYS:-365}
+      DOCUMENT_DIR: /data/documents
+    volumes:
+      - documents:/data/documents
     depends_on:
       redis:
         condition: service_healthy
@@ -97,3 +110,4 @@ networks:
 
 volumes:
   redis_data:
+  documents:

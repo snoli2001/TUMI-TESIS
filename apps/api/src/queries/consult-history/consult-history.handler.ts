@@ -1,13 +1,15 @@
-import { BadRequestException, Injectable } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import type { HistoryItem } from "@tumi/contracts";
 import { getPrisma } from "@tumi/database";
+import { readSession } from "../../shared/session/session-access";
 
 @Injectable()
 export class ConsultHistoryHandler {
-  async execute(sessionId: string | undefined): Promise<HistoryItem[]> {
-    if (!sessionId) throw new BadRequestException("Falta sessionId");
+  async execute(sessionId: string | undefined, accessKey: string | undefined): Promise<HistoryItem[]> {
+    const id = await readSession(sessionId, accessKey);
+    if (!id) return [];
     const rows = await getPrisma().factTurn.findMany({
-      where: { sessionId, role: "assistant" },
+      where: { sessionId: id, role: "assistant" },
       orderBy: { createdAt: "desc" },
       take: 30,
     });

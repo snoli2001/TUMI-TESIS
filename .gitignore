@@ -10,3 +10,4 @@ coverage
 packages/database/src/generated
 .pnpm-store
 *.log
+data/
