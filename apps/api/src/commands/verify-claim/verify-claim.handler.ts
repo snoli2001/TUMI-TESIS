@@ -13,7 +13,16 @@ import { buildGraph } from "./graph/fact-check.graph";
 import { mejorCoincidencia, menciones, nombresAlInicio, nombresEnTexto } from "./graph/menciones";
 import type { AgentDeps, StreamHooks, TumiState } from "./graph/state";
 import { cargarFicha } from "./profile/cargar";
-import { consultaWeb, decidir, type FichaOficial, type Regla } from "./profile/reglas";
+import {
+  apellidoDe,
+  consultaWeb,
+  consultasDe,
+  decidir,
+  lecturaOficial,
+  tipoDePregunta,
+  type FichaOficial,
+  type Regla,
+} from "./profile/reglas";
 import { LlmService } from "./drafting/llm.service";
 
 @Injectable()
@@ -45,13 +54,16 @@ export class VerifyClaimHandler implements OnModuleInit {
       const ficha = await cargarFicha(request.hojaVidaId);
       if (!ficha) throw new NotFoundException("Candidato no encontrado");
       const regla = decidir(request.query, ficha);
-      if (regla) return this.guardar(sessionId, await this.desdeRegla(sessionId, request.query, ficha, regla, hooks));
-      const result = await buildGraph(this.deps(ficha), this.checkpointer).invoke(
+      const tipo = tipoDePregunta(request.query);
+      if (regla && tipo !== "penal" && tipo !== "propuesta") {
+        return this.guardar(sessionId, await this.desdeRegla(sessionId, request.query, ficha, regla, hooks));
+      }
+      const result = await buildGraph(this.deps(ficha, request.query), this.checkpointer).invoke(
         {
           query: request.query,
           sessionId,
           consultaId: sessionId,
-          degraded: !this.decisions.enabled(),
+          degraded: lecturaOficial(request.query, ficha) ? false : !this.decisions.enabled(),
         },
         { configurable: { thread_id: sessionId, hooks } },
       );
@@ -98,6 +110,7 @@ export class VerifyClaimHandler implements OnModuleInit {
       consultaId: sessionId,
       entities: [entity],
       claims: [query],
+      consultas: [],
       evidence: [source],
       verdicts: [verdict],
       conclusion: "",
@@ -189,30 +202,57 @@ export class VerifyClaimHandler implements OnModuleInit {
     return { ...payload, id: turn.id.toString() };
   }
 
-  private deps(ficha?: FichaOficial): AgentDeps {
+  private deps(ficha?: FichaOficial, pregunta = ""): AgentDeps {
     const elegido = ficha ? entidadDe(ficha) : null;
     return {
       decisionsEnabled: () => this.decisions.enabled(),
       searchCandidates: (query) => (elegido ? Promise.resolve([elegido]) : this.buscarPorMencion(query)),
       chooseCandidate: (query, entities) => this.decisions.chooseCandidate(query, entities),
       extractClaims: (query) => this.llm.extractClaims(query),
-      searchEvidence: async (query, claims, entities, sessionId) => {
+      planQueries: (tipo, nombre, query) => this.llm.planQueries(tipo, nombre || ficha?.nombreCorto || "", query),
+      searchEvidence: async (query, claims, entities, sessionId, consultas) => {
         const text = [query, ...claims].join(" ");
-        const codigoExpedientes = ficha
-          ? [ficha.codigoExpediente ?? "__sin_expediente__"]
-          : await this.vectors.expedientesDe(entities.map((entity) => entity.id));
+        const tipo = tipoDePregunta(pregunta || query);
+        const incluirPlan = tipo === "propuesta";
+        const codigoExpedientes = incluirPlan
+          ? ficha
+            ? [ficha.codigoExpediente ?? "__sin_expediente__"]
+            : await this.vectors.expedientesDe(entities.map((entity) => entity.id))
+          : [];
         const hojaVidaIds = ficha ? [ficha.id] : entities.map((entity) => entity.id);
-        const webQuery = ficha ? consultaWeb(ficha.nombreCorto, text, ficha.nombre) : text;
+        const nombre = ficha?.nombreCorto || entities[0]?.nombre || "";
+        const hecho = ficha ? consultaWeb(ficha.nombreCorto, text, ficha.nombre) : text;
+        const busquedas = consultas.length > 0 ? consultas : consultasDe(tipo, nombre, hecho);
+        const apellido = apellidoDe(ficha?.nombre || entities[0]?.nombre || "");
         const [local, remote] = await Promise.all([
-          this.vectors.search(text, { codigoExpedientes, sessionId, hojaVidaIds }),
-          this.web.search(webQuery),
+          this.vectors.search(text, { codigoExpedientes, sessionId, hojaVidaIds, incluirPlan }),
+          this.web.search(busquedas, apellido),
         ]);
-        return [...(ficha ? hojaDe(ficha) : []), ...local, ...remote];
+        const oficial = ficha ? fuenteOficial(ficha, pregunta || query) : [];
+        return [...oficial, ...(ficha ? hojaDe(ficha) : []), ...local, ...remote];
       },
-      rerank: (claims, evidence) => this.decisions.rerank(claims, evidence),
+      rerank: async (claims, evidence) => {
+        const fijos = evidence.filter((item) => item.id.startsWith("oficial-") || item.origin === "tavily");
+        const resto = evidence.filter((item) => !fijos.includes(item));
+        const ranked = await this.decisions.rerank(claims, resto);
+        return [...fijos, ...ranked];
+      },
       clasificarCirculacion: (claims, evidence) => this.decisions.clasificarCirculacion(claims, evidence),
-      judgeClaim: (claim, evidence, entities) =>
-        this.decisions.judgeClaim(claim, evidence, entities),
+      judgeClaim: (claim, evidence, entities) => {
+        if (ficha) {
+          const oficial = lecturaOficial(pregunta || claim, ficha);
+          if (oficial) {
+            return Promise.resolve({
+              verdict: oficial.verdict,
+              confidence: oficial.confianza,
+              degraded: false,
+              decisions: [],
+              explanation: oficial.explicacion,
+            });
+          }
+        }
+        return this.decisions.judgeClaim(claim, evidence, entities);
+      },
       explain: (state, onToken) => this.llm.explain(state, onToken),
     };
   }
@@ -296,8 +336,37 @@ function uniqueSources(state: TumiState) {
   }));
 }
 
+function fuenteOficial(ficha: FichaOficial, query: string): TumiState["evidence"] {
+  const oficial = lecturaOficial(query, ficha);
+  if (!oficial) return [];
+  return [
+    {
+      id: `oficial-${ficha.id}`,
+      title: oficial.fuente.titulo,
+      url: null,
+      snippet: oficial.fuente.snippet,
+      origin: oficial.fuente.origin,
+      role: "prueba" as const,
+      stance: null,
+      pagina: null,
+      codigoExpediente: oficial.fuente.titulo === "Plan de gobierno" ? ficha.codigoExpediente : null,
+    },
+  ];
+}
+
 function hojaDe(ficha: FichaOficial): TumiState["evidence"] {
-  return ficha.trayectoria.slice(0, 12).map((item, index) => ({
+  const sentencias = ficha.sentencias.slice(0, 6).map((item, index) => ({
+    id: `sentencia-${ficha.id}-${index}`,
+    title: "Hoja de vida",
+    url: null,
+    snippet: item.texto,
+    origin: "jne" as const,
+    role: "prueba" as const,
+    stance: null,
+    pagina: null,
+    codigoExpediente: null,
+  }));
+  const trayectoria = ficha.trayectoria.slice(0, 12).map((item, index) => ({
     id: `hoja-${ficha.id}-${index}`,
     title: "Hoja de vida",
     url: null,
@@ -308,6 +377,7 @@ function hojaDe(ficha: FichaOficial): TumiState["evidence"] {
     pagina: null,
     codigoExpediente: ficha.codigoExpediente,
   }));
+  return [...sentencias, ...trayectoria];
 }
 
 function entidadDe(ficha: FichaOficial): EntityRef {

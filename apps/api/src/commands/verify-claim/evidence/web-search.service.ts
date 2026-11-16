@@ -1,15 +1,26 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { tavily, type TavilySearchOptions } from "@tavily/core";
 import type { EvidenceItem } from "../graph/state";
+import { notaDelCandidato } from "../profile/reglas";
 import { DOMINIOS_MEDIO, rolDeUrl } from "./medios";
 
 @Injectable()
 export class WebSearchService {
   private readonly logger = new Logger(WebSearchService.name);
 
-  async search(query: string): Promise<EvidenceItem[]> {
-    const text = query.trim().slice(0, 400);
-    if (text.length < 3) return [];
+  async search(query: string | string[], apellido = ""): Promise<EvidenceItem[]> {
+    const consultas = (Array.isArray(query) ? query : [query])
+      .map((item) => item.trim().slice(0, 400))
+      .filter((item) => item.length >= 3)
+      .slice(0, 3);
+    if (consultas.length === 0) return [];
+    const listas = await Promise.all(consultas.map((text) => this.una(text)));
+    const notas = unicos(listas.flat());
+    if (apellido.trim().length < 3) return notas;
+    return notas.filter((item) => notaDelCandidato(item.title, item.snippet, apellido));
+  }
+
+  private async una(text: string): Promise<EvidenceItem[]> {
     const [medios, circulacion] = await Promise.all([
       this.consultar(text, {
         topic: "news",
@@ -25,7 +36,7 @@ export class WebSearchService {
         excludeDomains: DOMINIOS_MEDIO,
       }),
     ]);
-    return unicos([...medios, ...circulacion]);
+    return [...medios, ...circulacion];
   }
 
   private async consultar(query: string, opciones: TavilySearchOptions): Promise<EvidenceItem[]> {

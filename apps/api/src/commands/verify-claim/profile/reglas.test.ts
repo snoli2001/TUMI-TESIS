@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { consultaWeb, decidir, type FichaOficial } from "./reglas";
+import { apellidoDe, consultasDe, consultaWeb, decidir, notaDelCandidato, type FichaOficial } from "./reglas";
 
 const ficha: FichaOficial = {
   id: "hv-1",
@@ -40,8 +40,41 @@ describe("reglas de la ficha", () => {
     assert.equal(regla?.tipo, "fuera");
   });
 
-  it("no confunde el inicio de la frase con otra persona", () => {
-    assert.equal(decidir("Tiene antecedentes judiciales", ficha), null);
+  it("cita la hoja de vida cuando preguntan por procesos penales", () => {
+    const regla = decidir("Tiene procesos penales", {
+      ...ficha,
+      sentencias: [{ texto: "DIFAMACIÓN AGRAVADA. 1 año de pena suspendida." }],
+    });
+    assert.equal(regla?.tipo, "veredicto");
+    if (regla?.tipo !== "veredicto") return;
+    assert.equal(regla.verdict, "verdadero");
+    assert.equal(regla.fuente.titulo, "Hoja de vida");
+    assert.match(regla.fuente.snippet, /DIFAMACIÓN/);
+  });
+
+  it("dice que la hoja no declara antecedentes si no hay filas", () => {
+    const regla = decidir("Tiene antecedentes judiciales", ficha);
+    assert.equal(regla?.tipo, "veredicto");
+    if (regla?.tipo !== "veredicto") return;
+    assert.equal(regla.verdict, "falso");
+    assert.equal(regla.fuente.titulo, "Hoja de vida");
+    assert.match(regla.explicacion, /no declara antecedentes penales/);
+  });
+
+  it("arma consultas de denuncias y de declaraciones públicas", () => {
+    const penales = consultasDe("penal", "Abel López", "Abel López procesos penales");
+    assert.ok(penales.some((consulta) => /denuncia/.test(consulta)));
+    assert.ok(penales.some((consulta) => /expediente/.test(consulta)));
+    const propuestas = consultasDe("propuesta", "Abel López", "Abel López tren");
+    assert.ok(propuestas.some((consulta) => /propuesta|declaración|ofreció/.test(consulta)));
+  });
+
+  it("deja fuera una nota que no trae el apellido", () => {
+    assert.equal(notaDelCandidato("Denuncia en la MML", "Hay un expediente abierto.", "Lopez"), false);
+    assert.equal(
+      notaDelCandidato("López enfrenta una denuncia", "El expediente sigue abierto.", apellidoDe("Abel Crisanto Lopez")),
+      true,
+    );
   });
 
   it("marca falso un cargo que no está en el padrón", () => {

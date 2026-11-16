@@ -100,6 +100,49 @@ const RELLENO = new Set([
   "dona",
 ]);
 
+export type TipoPregunta = "penal" | "propuesta" | "otro";
+
+export function tipoDePregunta(query: string): TipoPregunta {
+  const plano = plegar(query);
+  if (DELITO.some((word) => plano.includes(word)) || /penal|antecedente|proceso|sentencia|condena|\bdelito\b/.test(plano)) {
+    return "penal";
+  }
+  if (/promet|ofrec|propuesta|plan de gobierno|se compromet/.test(plano)) return "propuesta";
+  return "otro";
+}
+
+export function lecturaOficial(query: string, ficha: FichaOficial): Extract<Regla, { tipo: "veredicto" }> | null {
+  const penal = lecturaPenal(query, ficha);
+  if (penal) return penal;
+  if (tipoDePregunta(query) !== "propuesta") return null;
+  const regla = decidir(query, ficha);
+  if (regla?.tipo === "veredicto" && regla.fuente.titulo === "Plan de gobierno") return regla;
+  return null;
+}
+
+export function consultasDe(tipo: TipoPregunta, nombre: string, hecho: string): string[] {
+  const quien = nombre.trim();
+  const plantillas =
+    tipo === "penal"
+      ? [`${quien} denuncia`, `${quien} expediente judicial`, `${quien} proceso penal`]
+      : tipo === "propuesta"
+        ? [`${quien} propuesta`, `${quien} declaración pública`, `${quien} ofreció`]
+        : [];
+  const todas = [...plantillas, hecho].map((item) => item.replace(/\s+/g, " ").trim()).filter((item) => item.length > 0);
+  return [...new Set(todas)].slice(0, 3);
+}
+
+export function notaDelCandidato(titulo: string, snippet: string, apellido: string): boolean {
+  const clave = plegar(apellido).trim();
+  if (clave.length < 3) return false;
+  return plegar(`${titulo} ${snippet}`).includes(clave);
+}
+
+export function apellidoDe(nombre: string): string {
+  const partes = nombre.trim().split(/\s+/).filter((parte) => plegar(parte).length >= 3);
+  return partes.at(-1) ?? "";
+}
+
 export function decidir(query: string, ficha: FichaOficial): Regla | null {
   if (personaAjena(query, ficha.nombre, ficha.partido)) {
     return {
@@ -108,35 +151,10 @@ export function decidir(query: string, ficha: FichaOficial): Regla | null {
     };
   }
 
-  const plano = plegar(query);
-  if (DELITO.some((word) => plano.includes(word))) {
-    const hit = ficha.sentencias.find((item) => delitoEnTexto(plano, item.texto));
-    if (!hit) {
-      return {
-        tipo: "veredicto",
-        verdict: "falso",
-        confianza: 0.9,
-        explicacion: `La hoja de vida de ${ficha.nombre} no registra una sentencia sobre ese hecho. En estas elecciones el veredicto es falso.`,
-        fuente: {
-          titulo: "Hoja de vida",
-          snippet: "No hay una sentencia declarada sobre ese hecho.",
-          origin: "jne",
-        },
-      };
-    }
-    return {
-      tipo: "veredicto",
-      verdict: "verdadero",
-      confianza: 0.9,
-      explicacion: `La hoja de vida de ${ficha.nombre} registra una sentencia sobre ese hecho.`,
-      fuente: {
-        titulo: "Hoja de vida",
-        snippet: hit.texto,
-        origin: "jne",
-      },
-    };
-  }
+  const penal = lecturaPenal(query, ficha);
+  if (penal) return penal;
 
+  const plano = plegar(query);
   const cargo = CARGOS.find((item) => plano.includes(item));
   if (cargo && !plegar(ficha.cargo).includes(cargo)) {
     return {
@@ -293,6 +311,68 @@ function partidoCoincide(plano: string, partido: string): boolean {
     .filter((word) => word.length >= 5 && !RELLENO.has(word));
   if (tokens.length === 0) return true;
   return tokens.some((token) => plano.includes(token));
+}
+
+function lecturaPenal(query: string, ficha: FichaOficial): Extract<Regla, { tipo: "veredicto" }> | null {
+  if (tipoDePregunta(query) !== "penal") return null;
+  const plano = plegar(query);
+  const especifico = DELITO.some((word) => plano.includes(word));
+  if (especifico) {
+    const hit = ficha.sentencias.find((item) => delitoEnTexto(plano, item.texto));
+    if (hit) {
+      return veredictoHoja(
+        ficha,
+        "verdadero",
+        `La hoja de vida de ${ficha.nombre} registra una sentencia sobre ese hecho.`,
+        hit.texto,
+      );
+    }
+    if (ficha.sentencias.length > 0) {
+      const declaradas = ficha.sentencias.map((item) => item.texto).join("; ");
+      return veredictoHoja(
+        ficha,
+        "falso",
+        `La hoja de vida de ${ficha.nombre} no declara ese delito. Sí declara: ${declaradas}.`,
+        declaradas,
+      );
+    }
+    return veredictoHoja(
+      ficha,
+      "falso",
+      `La hoja de vida de ${ficha.nombre} no registra una sentencia sobre ese hecho. En estas elecciones el veredicto es falso.`,
+      "No hay una sentencia declarada sobre ese hecho.",
+    );
+  }
+  if (ficha.sentencias.length > 0) {
+    const declaradas = ficha.sentencias.map((item) => item.texto).join("; ");
+    return veredictoHoja(
+      ficha,
+      "verdadero",
+      `La hoja de vida de ${ficha.nombre} declara antecedentes penales.`,
+      declaradas,
+    );
+  }
+  return veredictoHoja(
+    ficha,
+    "falso",
+    `La hoja de vida de ${ficha.nombre} no declara antecedentes penales.`,
+    "No declara antecedentes penales.",
+  );
+}
+
+function veredictoHoja(
+  ficha: FichaOficial,
+  verdict: "verdadero" | "falso",
+  explicacion: string,
+  snippet: string,
+): Extract<Regla, { tipo: "veredicto" }> {
+  return {
+    tipo: "veredicto",
+    verdict,
+    confianza: 0.9,
+    explicacion,
+    fuente: { titulo: "Hoja de vida", snippet, origin: "jne" },
+  };
 }
 
 function delitoEnTexto(consulta: string, texto: string): boolean {

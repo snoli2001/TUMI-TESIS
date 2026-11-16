@@ -136,10 +136,22 @@ export function pruebaSirve(
   nombres: string[],
 ): boolean {
   if (item.origin !== "tavily") return true;
+  const text = plegar(`${item.title} ${item.snippet}`);
+  const apellidos = nombres.flatMap((nombre) => plegar(nombre).split(/\s+/)).filter((word) => word.length >= 4);
+  if (apellidos.length > 0 && !apellidos.some((apellido) => text.includes(apellido))) return false;
+  const consulta = plegar(claims.join(" "));
+  if (
+    /penal|antecedente|proceso|sentencia|condena|delito|viol/.test(consulta) &&
+    /denuncia|expediente|proceso penal|sentencia|condena/.test(text)
+  ) {
+    return true;
+  }
+  if (/promet|ofrec|propuesta|plan/.test(consulta) && /propuso|propuesta|ofrec|declar/.test(text)) {
+    return true;
+  }
   const omitidos = new Set(
     nombres.flatMap((nombre) => plegar(nombre).split(/\s+/)).filter((word) => word.length > 2),
   );
-  const text = plegar(`${item.title} ${item.snippet}`);
   const tokens = (claims.join(" ").match(/\p{L}+/gu) ?? [])
     .map(plegar)
     .filter((word) => word.length >= 5 && !RELLENO.has(word) && !omitidos.has(word));

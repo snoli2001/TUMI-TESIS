@@ -18,6 +18,7 @@ export interface EvidenceScope {
   codigoExpedientes: string[];
   sessionId?: string;
   hojaVidaIds?: string[];
+  incluirPlan?: boolean;
 }
 
 export const PAYLOAD_INDEXES = [
@@ -36,7 +37,7 @@ export interface EvidenceFilter {
 export function evidenceFilter(scope: EvidenceScope): EvidenceFilter | null {
   const should: EvidenceFilter["should"] = [];
   const expedientes = scope.codigoExpedientes.filter((value) => value.length > 0);
-  if (expedientes.length > 0) {
+  if (scope.incluirPlan !== false && expedientes.length > 0) {
     should.push({
       must: [
         { key: "origen", match: { value: "plan" } },

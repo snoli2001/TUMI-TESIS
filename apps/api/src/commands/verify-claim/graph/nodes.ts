@@ -1,5 +1,6 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { EntityRef } from "@tumi/contracts";
+import { tipoDePregunta } from "../profile/reglas";
 import type { AgentDeps, StreamHooks, TumiState } from "./state";
 import { nombresAlInicio, pruebaSirve } from "./menciones";
 
@@ -47,6 +48,19 @@ export async function extractClaims(
   return { claims: claims.length > 0 ? claims : [state.query] };
 }
 
+export async function investigate(
+  state: TumiState,
+  deps: AgentDeps,
+  config: RunnableConfig,
+): Promise<Partial<TumiState>> {
+  const stream = hooks(config);
+  stream.onNode("investigacion", "start");
+  const nombre = state.entities[0]?.nombre ?? "";
+  const consultas = await deps.planQueries(tipoDePregunta(state.query), nombre, state.query);
+  stream.onNode("investigacion", "done");
+  return { consultas };
+}
+
 export async function retrieve(
   state: TumiState,
   deps: AgentDeps,
@@ -54,7 +68,13 @@ export async function retrieve(
 ): Promise<Partial<TumiState>> {
   const stream = hooks(config);
   stream.onNode("recuperacion", "start");
-  const found = await deps.searchEvidence(state.query, state.claims, state.entities, state.sessionId);
+  const found = await deps.searchEvidence(
+    state.query,
+    state.claims,
+    state.entities,
+    state.sessionId,
+    state.consultas,
+  );
   const nombres = [
     ...state.entities.flatMap((entity) => entity.nombre.split(/\s+/)),
     ...state.claims.flatMap(nombresAlInicio),
@@ -75,7 +95,7 @@ export async function verify(
   const stream = hooks(config);
   stream.onNode("verificacion", "start");
   const verdicts = [];
-  let degraded = !deps.decisionsEnabled();
+  let degraded = false;
   for (const claim of state.claims) {
     const prueba = state.evidence.filter((item) => item.role !== "contraste");
     const judged = await deps.judgeClaim(claim, prueba, state.entities);

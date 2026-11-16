@@ -78,7 +78,8 @@ export class VectorSearchService {
   async search(query: string, scope: EvidenceScope): Promise<EvidenceItem[]> {
     const hojaVidaIds = await this.readyDocumentOwners(scope.hojaVidaIds ?? []);
     const narrowed = { ...scope, hojaVidaIds };
-    const lexical = await this.searchPostgres(query, narrowed.codigoExpedientes);
+    const lexical =
+      scope.incluirPlan === false ? [] : await this.searchPostgres(query, narrowed.codigoExpedientes);
     const semantic = await this.searchQdrant(query, narrowed);
     const merged = new Map<string, EvidenceItem>();
     for (const item of [...semantic, ...lexical]) merged.set(item.id, item);

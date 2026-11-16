@@ -3,6 +3,7 @@ import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { ChatOpenAI } from "@langchain/openai";
 import { deterministicClaims, textOf } from "../../../shared/text";
 import type { TumiState } from "../graph/state";
+import { consultasDe, consultaWeb, type TipoPregunta } from "../profile/reglas";
 
 @Injectable()
 export class LlmService {
@@ -33,9 +34,39 @@ export class LlmService {
     }
   }
 
+  async planQueries(tipo: TipoPregunta, nombre: string, query: string): Promise<string[]> {
+    const hecho = consultaWeb(nombre, query, nombre);
+    const base = consultasDe(tipo, nombre, hecho);
+    if (!this.enabled()) return base;
+    try {
+      const model = new ChatOpenAI({
+        model: process.env.OPENAI_MODEL_MINI || "gpt-5.1-mini",
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+      const objetivo =
+        tipo === "penal"
+          ? "Busca denuncias, expedientes y procesos de esa persona."
+          : tipo === "propuesta"
+            ? "Busca declaraciones y propuestas dichas en público."
+            : "Busca el hecho de la afirmación.";
+      const response = await model.invoke([
+        new SystemMessage(
+          `Devuelve solo JSON {"consultas": string[]}. Máximo 3. Cada consulta incluye el nombre del candidato. ${objetivo} No inventes datos que no estén en la afirmación.`,
+        ),
+        new HumanMessage(`${nombre}. ${query}`),
+      ]);
+      const parsed = parseConsultas(textOf(response.content));
+      return parsed.length > 0 ? parsed : base;
+    } catch (error) {
+      this.logger.warn(`Búsqueda degradada: ${error instanceof Error ? error.message : error}`);
+      return base;
+    }
+  }
+
   async explain(state: TumiState, onToken: (text: string) => void): Promise<string> {
     if (!this.enabled()) {
-      const text = degradedConclusion(state);
+      const oficial = state.verdicts.find((verdict) => verdict.explanation)?.explanation;
+      const text = oficial || degradedConclusion(state);
       onToken(text);
       return text;
     }
@@ -47,7 +78,7 @@ export class LlmService {
       });
       const stream = await model.stream([
         new SystemMessage(
-          "Redacta en español una explicación breve para un ciudadano. Los veredictos ya están decididos y no puedes cambiarlos. Si no hay entidades, no inventes nombre, cargo ni partido. Solo las fuentes con rol prueba sostienen el veredicto. Si el claim atribuye un delito y ninguna fuente de prueba cita una condena, dilo en la primera oración y no dejes el hecho como una posibilidad. Las fuentes de contraste no se citan ni se parafrasean: di solo que circulan menciones no verificadas y que no acreditan el hecho. Separa los argumentos en párrafos cortos y viñetas que empiecen con '- '. Usa **negrita** solo para el veredicto. Si el resultado está degradado, dilo.",
+          "Redacta en español una explicación breve para un ciudadano. Los veredictos ya están decididos y no puedes cambiarlos. Si no hay entidades, no inventes nombre, cargo ni partido. Solo las fuentes con rol prueba sostienen el veredicto. Si una fuente se titula Hoja de vida, esa declaración es la fuente oficial del antecedente: cítala primero y no la sustituyas por una nota. Una nota solo informa denuncias o expedientes públicos. Si la fuente es el plan de gobierno, úsalo para lo prometido por escrito; una nota solo muestra que lo dijo en público. Si el claim atribuye un delito y ninguna fuente de prueba cita una condena, dilo en la primera oración y no dejes el hecho como una posibilidad. Las fuentes de contraste no se citan ni se parafrasean: di solo que circulan menciones no verificadas y que no acreditan el hecho. Separa los argumentos en párrafos cortos y viñetas que empiecen con '- '. Usa **negrita** solo para el veredicto. Si el resultado está degradado, dilo.",
         ),
         new HumanMessage(
           JSON.stringify({
@@ -83,6 +114,22 @@ export class LlmService {
       onToken(text);
       return text;
     }
+  }
+}
+
+function parseConsultas(raw: string): string[] {
+  const json = raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1);
+  if (!json) return [];
+  try {
+    const parsed = JSON.parse(json) as { consultas?: unknown };
+    if (!Array.isArray(parsed.consultas)) return [];
+    return parsed.consultas
+      .filter((item): item is string => typeof item === "string")
+      .map((item) => item.trim())
+      .filter((item) => item.length > 0)
+      .slice(0, 3);
+  } catch {
+    return [];
   }
 }
 

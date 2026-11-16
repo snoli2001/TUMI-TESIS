@@ -38,7 +38,7 @@
           </div>
           @if (cita(verdict.sources); as fuente) {
             <div>
-              <p class="eyebrow">Plan de gobierno</p>
+              <p class="eyebrow">{{ etiquetaCita(fuente) }}</p>
               <p>{{ fuente.snippet }}</p>
               <p class="muted">
                 @if (fuente.codigoExpediente) {

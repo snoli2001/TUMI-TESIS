@@ -35,7 +35,7 @@ pnpm --filter @tumi/worker build
 node apps/worker/dist/index-plans.js
 ```
 
-El comando retoma solo: si un expediente ya está en la colección, lo omite. El worker de Docker hace el mismo recorrido por la cola.
+El comando retoma solo: si un expediente ya está en la colección, lo omite. El worker de Docker no empieza ese recorrido al arrancar. Para activarlo en el contenedor, define `INDEX_PLANS_ON_START=true`.
 
 ## Stack completo
 

@@ -2,7 +2,8 @@ import { Component, inject, input, signal } from "@angular/core";
 import type { ClaimVerdict, FactCheckResult, SourceRef } from "@tumi/contracts";
 import { ApiService } from "../api.service";
 import {
-  citaDelPlan,
+  citaPrincipal,
+  etiquetaCita,
   etiquetaEstado,
   etiquetaOrigen,
   etiquetaPaso,
@@ -92,7 +93,8 @@ export class VerificarCandidato {
   etiquetaEstado = etiquetaEstado;
   etiquetaOrigen = etiquetaOrigen;
   etiquetaPostura = etiquetaPostura;
-  cita = citaDelPlan;
+  cita = citaPrincipal;
+  etiquetaCita = etiquetaCita;
   lectura = (verdict: ClaimVerdict) => lecturaClasificador(verdict.decisions);
   formato = markdownAHtml;
 

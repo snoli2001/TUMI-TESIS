@@ -47,6 +47,15 @@ test("no toma como nombre una frase que empieza por el dato", () => {
   assert.deepEqual(nombresAlInicio("Fue Lopez el responsable"), []);
 });
 
+test("una nota con el apellido y un expediente sí sirve en una pregunta penal", () => {
+  const nota = {
+    origin: "tavily",
+    title: "López enfrenta una denuncia",
+    snippet: "El expediente judicial sigue abierto en Lima.",
+  };
+  assert.equal(pruebaSirve(["Tiene procesos penales"], nota, ["Abel", "Lopez"]), true);
+});
+
 test("una nota que no menciona el hecho no sirve de prueba", () => {
   const nota = {
     origin: "tavily",

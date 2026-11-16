@@ -4,6 +4,7 @@ const PASOS: Record<string, string> = {
   transcripcion: "Transcripción",
   identificacion: "Identificación",
   extraccion: "Extracción",
+  investigacion: "Investigación",
   recuperacion: "Recuperación",
   verificacion: "Verificación",
   explicacion: "Explicación",
@@ -61,12 +62,29 @@ export function fuentesDeContraste(sources: SourceRef[]): SourceRef[] {
   return sources.filter((source) => source.role === "contraste");
 }
 
-export function citaDelPlan(sources: SourceRef[]): SourceRef | null {
+export function etiquetaCita(source: SourceRef): string {
+  if (source.origin === "tavily") return "Medio";
+  if (source.title === "Hoja de vida") return "Hoja de vida";
+  if (source.title === "Plan de gobierno" || source.origin === "qdrant" || source.pagina !== null) {
+    return "Plan de gobierno";
+  }
+  return "Padrón";
+}
+
+export function citaPrincipal(sources: SourceRef[]): SourceRef | null {
+  const prueba = fuentesDePrueba(sources);
   return (
-    sources.find((source) => source.pagina !== null && source.codigoExpediente) ??
-    sources.find((source) => source.origin === "qdrant") ??
+    prueba.find((source) => source.id.startsWith("oficial-")) ??
+    prueba.find((source) => source.title === "Hoja de vida") ??
+    prueba.find((source) => source.pagina !== null && source.codigoExpediente) ??
+    prueba.find((source) => source.origin === "qdrant") ??
+    prueba[0] ??
     null
   );
+}
+
+export function citaDelPlan(sources: SourceRef[]): SourceRef | null {
+  return citaPrincipal(sources);
 }
 
 export interface LecturaClasificador {

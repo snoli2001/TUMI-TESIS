@@ -31,11 +31,16 @@ export class IngestService implements OnModuleInit, OnModuleDestroy {
     this.worker.on("failed", (job, error) => {
       this.logger.error(`Job ${job?.name} falló: ${error.message}`);
     });
-    await this.queue.add(
-      "indexar-planes",
-      {},
-      { jobId: "indexar-planes", removeOnComplete: true, removeOnFail: 20 },
-    );
+    if (plansIndexingEnabled()) {
+      await this.queue.add(
+        "indexar-planes",
+        {},
+        { jobId: "indexar-planes", removeOnComplete: true, removeOnFail: 20 },
+      );
+      this.logger.log("Recorrido de planes activado");
+    } else {
+      this.logger.log("Recorrido de planes en espera. Indexa con index-plans.js o con INDEX_PLANS_ON_START=true");
+    }
     void this.retain();
     this.retentionTimer = setInterval(() => void this.retain(), 60 * 60 * 1000);
   }
@@ -57,12 +62,14 @@ export class IngestService implements OnModuleInit, OnModuleDestroy {
       if (documentId) await indexUploadedDocument(documentId);
       return undefined;
     }
-    if (name !== "indexar-planes") return undefined;
+    if (name !== "indexar-planes" || !plansIndexingEnabled()) return undefined;
     const after = isRecord(data) && typeof data.after === "string" ? data.after : undefined;
     const batch = await indexNextBatch(after);
-    this.logger.log(
-      `Planes indexados ${batch.indexed}, omitidos ${batch.skipped}, fallidos ${batch.failed}, fragmentos ${batch.chunks}`,
-    );
+    if (batch.indexed > 0 || batch.failed > 0 || !batch.next) {
+      this.logger.log(
+        `Planes indexados ${batch.indexed}, omitidos ${batch.skipped}, fallidos ${batch.failed}, fragmentos ${batch.chunks}`,
+      );
+    }
     if (batch.next) {
       await this.queue?.add(
         "indexar-planes",
@@ -80,6 +87,10 @@ export class IngestService implements OnModuleInit, OnModuleDestroy {
       this.logger.error(`Retención falló: ${error instanceof Error ? error.message : error}`);
     }
   }
+}
+
+function plansIndexingEnabled(): boolean {
+  return process.env.INDEX_PLANS_ON_START === "true";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
