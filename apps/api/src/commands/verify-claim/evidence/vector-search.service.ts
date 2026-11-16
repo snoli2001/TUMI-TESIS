@@ -9,7 +9,9 @@ import {
   PAYLOAD_INDEXES,
   chunkPayload,
   evidenceFilter,
+  statuteFilter,
   type EvidenceChunk,
+  type EvidenceFilter,
   type EvidenceScope,
 } from "./qdrant-metadata";
 
@@ -84,6 +86,12 @@ export class VectorSearchService {
     const merged = new Map<string, EvidenceItem>();
     for (const item of [...semantic, ...lexical]) merged.set(item.id, item);
     return this.conEnlace([...merged.values()].slice(0, 12));
+  }
+
+  async searchStatutes(query: string, ids: string[]): Promise<EvidenceItem[]> {
+    const filter = statuteFilter(ids);
+    if (!filter) return [];
+    return this.queryVectors(query, filter, 3);
   }
 
   private async conEnlace(items: EvidenceItem[]): Promise<EvidenceItem[]> {
@@ -183,7 +191,12 @@ export class VectorSearchService {
 
   private async searchQdrant(query: string, scope: EvidenceScope): Promise<EvidenceItem[]> {
     const filter = evidenceFilter(scope);
-    if (!filter || !process.env.OPENAI_API_KEY) return [];
+    if (!filter) return [];
+    return this.queryVectors(query, filter, 6);
+  }
+
+  private async queryVectors(query: string, filter: EvidenceFilter, limit: number): Promise<EvidenceItem[]> {
+    if (!process.env.OPENAI_API_KEY) return [];
     try {
       await this.ensureCollection();
       const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -196,7 +209,7 @@ export class VectorSearchService {
       const results = await this.client().query(EVIDENCE_COLLECTION, {
         query: vector,
         filter,
-        limit: 6,
+        limit,
         with_payload: true,
       });
       return results.points.flatMap((point) => toEvidence(point.payload ?? {}, String(point.id)));
@@ -208,8 +221,10 @@ export class VectorSearchService {
 }
 
 function toEvidence(payload: Record<string, unknown>, fallbackId: string): EvidenceItem[] {
-  const snippet = typeof payload.texto === "string" ? payload.texto : "";
-  if (!snippet) return [];
+  const texto = typeof payload.texto === "string" ? payload.texto : "";
+  if (!texto) return [];
+  const edicion = typeof payload.edicion === "string" ? payload.edicion : "";
+  const snippet = edicion ? `${edicion}. ${texto}` : texto;
   const pagina = typeof payload.pagina === "number" ? payload.pagina : null;
   const titulo = typeof payload.titulo === "string" ? payload.titulo : "Fragmento";
   return [

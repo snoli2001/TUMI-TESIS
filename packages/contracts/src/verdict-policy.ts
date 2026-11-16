@@ -7,6 +7,9 @@ export const VERDICTS = [
 
 export type Verdict = (typeof VERDICTS)[number];
 
+export const VERDICT_CHECKS = ["said", "truth"] as const;
+export type VerdictCheck = (typeof VERDICT_CHECKS)[number];
+
 export const SOURCE_ORIGINS = ["jne", "qdrant", "tavily"] as const;
 export type SourceOrigin = (typeof SOURCE_ORIGINS)[number];
 
@@ -74,6 +77,7 @@ export interface ClaimVerdict {
   explanation: string;
   decisions: DecisionAnswer[];
   sources: SourceRef[];
+  check?: VerdictCheck;
 }
 
 export interface FactCheckResult {

@@ -58,40 +58,45 @@
             <p class="eyebrow">Afirmación</p>
             <p>{{ verdict.claim }}</p>
           </div>
-          @if (citation(verdict.sources); as source) {
-            <div>
-              <p class="eyebrow">Plan de gobierno</p>
-              <p>{{ source.snippet }}</p>
-              <p class="muted">
-                @if (source.codigoExpediente) {
-                  {{ source.codigoExpediente }}
+          <div class="citas">
+            @for (source of citations(verdict.sources); track source.id) {
+              <div>
+                <p class="eyebrow">{{ citationLabel(source) }}</p>
+                <p>{{ source.snippet }}</p>
+                <p class="muted">
+                  @if (source.codigoExpediente) {
+                    {{ source.codigoExpediente }}
+                  }
+                  @if (source.pagina !== null) {
+                    · página {{ source.pagina }}
+                  }
+                </p>
+                @if (source.url) {
+                  <a [href]="source.url" target="_blank" rel="noreferrer">Abrir esta página</a>
                 }
-                @if (source.pagina !== null) {
-                  · página {{ source.pagina }}
-                }
-              </p>
-              @if (source.url) {
-                <a [href]="source.url" target="_blank" rel="noreferrer">Abrir esta página</a>
-              }
-            </div>
-          }
+              </div>
+            }
+          </div>
         </div>
         @if (verdict.confidence !== null) {
-          <p class="muted">Confianza {{ (verdict.confidence * 100).toFixed(0) }}%</p>
+          <p class="meter">{{ verdictCertainty(verdict) }} <strong>{{ (verdict.confidence * 100).toFixed(0) }}%</strong></p>
           <div class="bar"><span [style.width.%]="verdict.confidence * 100"></span></div>
         }
         @if (reading(verdict); as scores) {
+          @if (scores.supports !== null || scores.denies !== null || scores.strength !== null) {
+            <p class="muted meter-note">{{ evidenceNote(citations(verdict.sources).length) }}</p>
+          }
           @if (scores.supports !== null) {
-            <p class="muted">Respalda {{ (scores.supports * 100).toFixed(0) }}%</p>
+            <p class="meter">{{ supportsCaption(citations(verdict.sources).length) }} <strong>{{ (scores.supports * 100).toFixed(0) }}%</strong></p>
             <div class="bar"><span [style.width.%]="scores.supports * 100"></span></div>
           }
           @if (scores.denies !== null) {
-            <p class="muted">Niega {{ (scores.denies * 100).toFixed(0) }}%</p>
+            <p class="meter">{{ deniesCaption(citations(verdict.sources).length) }} <strong>{{ (scores.denies * 100).toFixed(0) }}%</strong></p>
             <div class="bar"><span [style.width.%]="scores.denies * 100"></span></div>
           }
           @if (scores.strength !== null) {
-            <p class="muted">Solidez @if (scores.strengthText) { {{ scores.strengthText }} }</p>
-            <div class="bar"><span [style.width.%]="scores.strength * 100"></span></div>
+            <p class="meter">{{ firmnessCaption(scores.strengthText) }}</p>
+            <div class="bar"><span [style.width.%]="firmnessWidth(scores.strengthText, scores.strength)"></span></div>
           }
         }
       </article>

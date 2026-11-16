@@ -95,6 +95,30 @@ export async function upsertDocumentChunks(
   });
 }
 
+export async function upsertStatuteChunks(
+  chunks: Array<{ id: string; texto: string; titulo: string; url: string; pagina: number; documentId: string; edicion: string }>,
+  vectors: number[][],
+): Promise<void> {
+  await ensureCollection();
+  await openQdrant().upsert(EVIDENCE_COLLECTION, {
+    wait: true,
+    points: chunks.map((chunk, index) => ({
+      id: pointId(chunk.id),
+      vector: vectors[index] ?? [],
+      payload: {
+        fragmentoId: chunk.id,
+        texto: chunk.texto,
+        titulo: chunk.titulo,
+        url: chunk.url,
+        origen: "norma",
+        pagina: chunk.pagina,
+        documentId: chunk.documentId,
+        edicion: chunk.edicion,
+      },
+    })),
+  });
+}
+
 export async function upsertChunks(chunks: PlanChunk[], vectors: number[][]): Promise<void> {
   await ensureCollection();
   await openQdrant().upsert(EVIDENCE_COLLECTION, {

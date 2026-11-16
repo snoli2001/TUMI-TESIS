@@ -11,10 +11,12 @@ import { VectorSearchService } from "./evidence/vector-search.service";
 import { WebSearchService } from "./evidence/web-search.service";
 import { buildGraph } from "./graph/fact-check.graph";
 import { bestMatch, leadingNames, mentions, namesInText } from "./graph/mentions";
-import type { AgentDeps, StreamHooks, TumiState } from "./graph/state";
+import type { AgentDeps, EvidenceItem, StreamHooks, TumiState } from "./graph/state";
 import { loadProfile } from "./profile/load-profile";
 import {
+  asksOtherOffice,
   decide,
+  officeQueries,
   officialReading,
   questionKind,
   searchQueries,
@@ -22,7 +24,11 @@ import {
   type OfficialProfile,
   type ProfileRule,
 } from "./profile/rules";
+import { readingLine, type ImageKind } from "./drafting/image-reading";
 import { LlmService } from "./drafting/llm.service";
+import { statementAppears } from "./evidence/attribution";
+import { isSocialUrl } from "./evidence/outlets";
+import { statutesFor } from "./evidence/statutes";
 
 @Injectable()
 export class VerifyClaimHandler implements OnModuleInit {
@@ -52,11 +58,20 @@ export class VerifyClaimHandler implements OnModuleInit {
     if (request.hojaVidaId) {
       const profile = await loadProfile(request.hojaVidaId);
       if (!profile) throw new NotFoundException("Candidato no encontrado");
-      const query = await this.queryFrom(request, `${profile.name}, ${profile.office} por ${profile.party}`, hooks);
+      const reading = await this.queryFrom(request, `${profile.name}, ${profile.office} por ${profile.party}`, hooks);
+      const query = reading.query;
+      if (reading.line) hooks.onToken(`${reading.line}\n\n`);
+      if (reading.imageKind === "statement" && reading.claims.length > 0) {
+        return this.save(
+          sessionId,
+          withReading(await this.fromStatements(sessionId, query, reading.claims, profile, hooks), reading.line),
+        );
+      }
       const rule = decide(query, profile);
       const kind = questionKind(query);
-      if (rule && kind !== "criminal" && kind !== "proposal") {
-        return this.save(sessionId, await this.fromRule(sessionId, query, profile, rule, hooks));
+      const opensNews = asksOtherOffice(query, profile.office);
+      if (reading.imageKind !== "statement" && rule && kind !== "criminal" && kind !== "proposal" && !opensNews) {
+        return this.save(sessionId, withReading(await this.fromRule(sessionId, query, profile, rule, hooks), reading.line));
       }
       const result = await buildGraph(this.deps(profile, query), this.checkpointer).invoke(
         {
@@ -67,7 +82,7 @@ export class VerifyClaimHandler implements OnModuleInit {
         },
         { configurable: { thread_id: sessionId, hooks } },
       );
-      return this.save(sessionId, this.fromGraph(sessionId, query, result));
+      return this.save(sessionId, withReading(this.fromGraph(sessionId, query, result), reading.line));
     }
 
     const result = await this.graph.invoke(
@@ -86,16 +101,126 @@ export class VerifyClaimHandler implements OnModuleInit {
     request: FactCheckRequest,
     candidate: string,
     hooks: StreamHooks,
-  ): Promise<string> {
+  ): Promise<{ query: string; line: string; imageKind: ImageKind | null; claims: string[] }> {
     const written = request.query.trim();
-    if (!request.image) return written;
+    if (!request.image) return { query: written, line: "", imageKind: null, claims: [] };
     hooks.onNode("lectura", "start");
     try {
-      const claim = await this.llm.readClaim(request.image, candidate);
-      return written.length >= 3 ? `${written}. ${claim}` : claim;
+      const reading = await this.llm.readClaim(request.image, candidate);
+      const claims = reading.claims.join("\n");
+      return {
+        query: written.length >= 3 ? `${written}\n${claims}` : claims,
+        line: readingLine(reading.kind),
+        imageKind: reading.kind,
+        claims: reading.claims,
+      };
     } finally {
       hooks.onNode("lectura", "done");
     }
+  }
+
+  private async fromStatements(
+    sessionId: string,
+    query: string,
+    claims: string[],
+    profile: OfficialProfile,
+    hooks: StreamHooks,
+  ): Promise<FactCheckResult> {
+    const entity = entityOf(profile);
+    hooks.onNode("atribucion", "start");
+    const found: string[] = [];
+    const said: ClaimVerdict[] = [];
+    try {
+      for (const claim of claims) {
+        const source = await this.whereSaid(claim, profile);
+        said.push(saidVerdict(claim, source));
+        if (source) found.push(claim);
+      }
+    } finally {
+      hooks.onNode("atribucion", "done");
+    }
+    if (found.length === 0) {
+      const conclusion = "Se contrastó con el plan, la hoja de vida y las redes. No aparece.";
+      hooks.onToken(conclusion);
+      return this.resultOf(sessionId, query, conclusion, said, [], [entity]);
+    }
+    const truthQuery = found.join("\n");
+    const graph = await buildGraph(this.deps(profile, truthQuery), this.checkpointer!).invoke(
+      {
+        query: truthQuery,
+        sessionId,
+        consultaId: sessionId,
+        degraded: officialReading(truthQuery, profile) ? false : !this.decisions.enabled(),
+      },
+      { configurable: { thread_id: sessionId, hooks } },
+    );
+    const truth = this.fromGraph(sessionId, truthQuery, graph);
+    const verdicts = [
+      ...said,
+      ...truth.verdicts.map((verdict) => ({
+        ...verdict,
+        check: "truth" as const,
+        sources: verdict.sources.map((source) =>
+          isSocialUrl(source.url) ? { ...source, role: "contraste" as const } : source,
+        ),
+      })),
+    ];
+    const saidSources = said.flatMap((verdict) => verdict.sources.filter((source) => !isSocialUrl(source.url)));
+    return this.resultOf(
+      sessionId,
+      query,
+      truth.conclusion,
+      verdicts,
+      mergeSources([truth.sources, saidSources]),
+      truth.entities.length > 0 ? truth.entities : [entity],
+    );
+  }
+
+  private async whereSaid(statement: string, profile: OfficialProfile): Promise<SourceRef | null> {
+    const identity = { name: profile.name, party: profile.party };
+    let documents: EvidenceItem[] = [];
+    try {
+      documents = await this.vectors.search(statement, {
+        codigoExpedientes: profile.codigoExpediente ? [profile.codigoExpediente] : ["__sin_expediente__"],
+        hojaVidaIds: [profile.id],
+        includePlan: true,
+      });
+    } catch (error) {
+      this.logger.warn(`No se pudo buscar la declaración en el plan: ${error instanceof Error ? error.message : error}`);
+    }
+    const appears = (text: string) => statementAppears(statement, text, identity);
+    const planPage = documents.find((item) => item.origin === "qdrant" && item.codigoExpediente && appears(item.snippet));
+    if (planPage) return documentSource(planPage, "Plan de gobierno");
+    const proposal = profile.proposals.find((item) => appears(item.text));
+    if (proposal) return textSource(profile, "plan", proposal.text);
+    const listed = documents.find((item) => item.origin === "jne" && appears(item.snippet));
+    if (listed) return documentSource(listed, "Plan de gobierno");
+    const row = profile.record.find((item) => appears(item.text)) ?? profile.sentences.find((item) => appears(item.text));
+    if (row) return textSource(profile, "hoja", row.text);
+    const uploaded = documents.find((item) => item.origin === "qdrant" && !item.codigoExpediente && appears(item.snippet));
+    if (uploaded) return documentSource(uploaded, "Hoja de vida");
+    const posts = await this.web.socialPosts(statement, identity);
+    return posts[0] ?? null;
+  }
+
+  private resultOf(
+    sessionId: string,
+    query: string,
+    conclusion: string,
+    verdicts: ClaimVerdict[],
+    sources: SourceRef[],
+    entities: EntityRef[],
+  ): FactCheckResult {
+    return factCheckResultSchema.parse({
+      id: sessionId,
+      sessionId,
+      query,
+      conclusion,
+      degraded: verdicts.some((verdict) => verdict.degraded),
+      verdicts,
+      sources,
+      entities,
+    });
   }
 
   private async fromRule(
@@ -238,20 +363,31 @@ export class VerifyClaimHandler implements OnModuleInit {
         const hojaVidaIds = profile ? [profile.id] : entities.map((entity) => entity.id);
         const name = profile?.shortName || entities[0]?.nombre || "";
         const fact = profile ? webQuery(profile.shortName, text, profile.name) : text;
-        const searches = queries.length > 0 ? queries : searchQueries(kind, name, fact);
+        const planned = queries.length > 0 ? queries : searchQueries(kind, name, fact);
+        const aboutOffice = profile ? officeQueries(name, question || query, profile.office) : [];
+        const searches = [...aboutOffice, fact, ...planned].filter((item, index, all) => all.indexOf(item) === index);
         const identity = {
           name: profile?.name || entities[0]?.nombre || "",
           party: profile?.party || entities[0]?.partido || "",
         };
-        const [local, remote] = await Promise.all([
+        const statuteIds = statutesFor(text).map((statute) => statute.id);
+        const [local, remote, statutes] = await Promise.all([
           this.vectors.search(text, { codigoExpedientes, sessionId, hojaVidaIds, includePlan }),
           this.web.search(searches, identity),
+          this.vectors.searchStatutes(text, statuteIds),
         ]);
         const official = profile ? officialEvidence(profile, question || query) : [];
-        return [...official, ...(profile ? resumeEvidence(profile) : []), ...local, ...remote];
+        const roster = profile && asksOtherOffice(question || query, profile.office) ? rosterEvidence(profile) : [];
+        return [...official, ...roster, ...statutes, ...(profile ? resumeEvidence(profile) : []), ...local, ...remote];
       },
       rerank: async (claims, evidence) => {
-        const pinnedItems = evidence.filter((item) => item.id.startsWith("oficial-") || item.origin === "tavily");
+        const pinnedItems = evidence.filter(
+          (item) =>
+            item.id.startsWith("oficial-") ||
+            item.id.startsWith("padron-") ||
+            item.id.startsWith("norma-") ||
+            item.origin === "tavily",
+        );
         const rest = evidence.filter((item) => !pinnedItems.includes(item));
         const ranked = await this.decisions.rerank(claims, rest);
         return [...pinnedItems, ...ranked];
@@ -355,6 +491,22 @@ function uniqueSources(state: TumiState) {
   }));
 }
 
+function rosterEvidence(profile: OfficialProfile): TumiState["evidence"] {
+  return [
+    {
+      id: `padron-${profile.id}`,
+      title: "Padrón",
+      url: null,
+      snippet: `${profile.name} postula a ${profile.office} por ${profile.party} en las Elecciones Regionales y Municipales de 2026.`,
+      origin: "jne" as const,
+      role: "prueba" as const,
+      stance: null,
+      pagina: null,
+      codigoExpediente: profile.codigoExpediente,
+    },
+  ];
+}
+
 function officialEvidence(profile: OfficialProfile, query: string): TumiState["evidence"] {
   const official = officialReading(query, profile);
   if (!official) return [];
@@ -397,6 +549,70 @@ function resumeEvidence(profile: OfficialProfile): TumiState["evidence"] {
     codigoExpediente: profile.codigoExpediente,
   }));
   return [...sentences, ...record];
+}
+
+function saidVerdict(claim: string, source: SourceRef | null): ClaimVerdict {
+  if (!source) {
+    return {
+      claim,
+      verdict: "no_verificable",
+      confidence: null,
+      degraded: false,
+      explanation: "Se contrastó con el plan, la hoja de vida y las redes. No aparece.",
+      decisions: [],
+      sources: [],
+      check: "said",
+    };
+  }
+  return {
+    claim,
+    verdict: "verdadero",
+    confidence: 0.8,
+    degraded: false,
+    explanation: "",
+    decisions: [],
+    sources: [source],
+    check: "said",
+  };
+}
+
+function textSource(profile: OfficialProfile, kind: "plan" | "hoja", snippet: string): SourceRef {
+  return {
+    id: `dicho-${kind}-${profile.id}-${snippet.length}`,
+    title: kind === "plan" ? "Plan de gobierno" : "Hoja de vida",
+    url: null,
+    snippet: snippet.slice(0, 700),
+    origin: kind === "plan" ? "qdrant" : "jne",
+    role: "prueba",
+    stance: null,
+    pagina: null,
+    codigoExpediente: kind === "plan" ? profile.codigoExpediente : null,
+  };
+}
+
+function documentSource(item: EvidenceItem, title: "Plan de gobierno" | "Hoja de vida"): SourceRef {
+  return {
+    id: item.id,
+    title,
+    url: item.url,
+    snippet: item.snippet.slice(0, 700),
+    origin: item.origin,
+    role: "prueba",
+    stance: null,
+    pagina: item.pagina,
+    codigoExpediente: item.codigoExpediente,
+  };
+}
+
+function mergeSources(groups: SourceRef[][]): SourceRef[] {
+  const map = new Map<string, SourceRef>();
+  for (const source of groups.flat()) map.set(source.url ?? source.id, source);
+  return [...map.values()];
+}
+
+function withReading(result: FactCheckResult, line: string): FactCheckResult {
+  if (!line || result.conclusion.startsWith(line)) return result;
+  return { ...result, conclusion: `${line}\n\n${result.conclusion}` };
 }
 
 function entityOf(profile: OfficialProfile): EntityRef {

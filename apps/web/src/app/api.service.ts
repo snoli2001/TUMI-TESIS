@@ -185,7 +185,10 @@ async function streamPost(
   });
   if (!response.ok || !response.body) {
     const payload = (await response.json().catch(() => null)) as { message?: string } | null;
-    throw new ApiError(payload?.message ?? "No se pudo abrir la verificación", response.status);
+    const fallback = response.status === 413
+      ? "La imagen supera el tamaño que se puede enviar"
+      : "No se pudo abrir la verificación";
+    throw new ApiError(payload?.message ?? fallback, response.status);
   }
 
   const reader = response.body.getReader();

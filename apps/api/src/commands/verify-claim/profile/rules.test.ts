@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { searchQueries, webQuery, decide, sameCandidate, type OfficialProfile } from "./rules";
+import { searchQueries, webQuery, claimFocus, mentionsClaim, decide, asksOtherOffice, officeQueries, sameCandidate, type OfficialProfile } from "./rules";
 
 const profile: OfficialProfile = {
   id: "hv-1",
@@ -87,6 +87,14 @@ describe("profile rules", () => {
     assert.equal(rule.verdict, "falso");
   });
 
+  it("abre la búsqueda de noticias cuando el cargo afirmado no es el del padrón", () => {
+    assert.equal(asksOtherOffice("Sera alcalde de lima", "REGIDOR PROVINCIAL"), true);
+    assert.equal(asksOtherOffice("Sera alcalde de lima", "ALCALDE PROVINCIAL"), false);
+    const queries = officeQueries("Rafael López Aliaga", "Sera alcalde de lima", "REGIDOR PROVINCIAL");
+    assert.ok(queries.some((item) => /reelección alcalde/.test(item)));
+    assert.equal(officeQueries("Rafael López Aliaga", "Sera alcalde de lima", "ALCALDE PROVINCIAL").length, 0);
+  });
+
   it("marca falso un partido distinto", () => {
     const rule = decide("Postula por el partido Morado", profile);
     assert.equal(rule?.kind, "verdict");
@@ -106,6 +114,14 @@ describe("profile rules", () => {
     assert.equal(decide("Visitó el mercado el domingo", profile), null);
   });
 
+  it("no cierra una cifra de desempleo con la experiencia laboral", () => {
+    const rule = decide("el desempleo ronda el 7 por ciento", {
+      ...profile,
+      record: [{ kind: "work", text: "GERENTE DE SEGURIDAD CIUDADANA, MUNICIPALIDAD DE LOS OLIVOS, 2019, 2019" }],
+    });
+    assert.equal(rule, null);
+  });
+
   it("niega un cargo previo que la hoja de vida no declara", () => {
     const rule = decide("Es un excongresista del partido Avanza País que postula a la alcaldía de Lima", {
       ...profile,
@@ -120,6 +136,18 @@ describe("profile rules", () => {
     assert.equal(rule.verdict, "falso");
     assert.equal(rule.source.title, "Hoja de vida");
     assert.match(rule.source.snippet, /ALCALDE DISTRITAL/);
+  });
+
+  it("no da por cierta la postulación cuando la hoja de vida solo comparte el partido", () => {
+    const rule = decide("Daniel Belizario Urresti Elera figura como alcalde provincial por Podemos Perú", {
+      ...profile,
+      name: "Daniel Belizario Urresti Elera",
+      shortName: "Daniel Urresti",
+      office: "ALCALDE PROVINCIAL",
+      party: "Podemos Perú",
+      record: [{ kind: "elected", text: "Cargo electo, CONGRESISTA DE LA REPÚBLICA, PODEMOS PERU, 2020, 2021" }],
+    });
+    assert.equal(rule, null);
   });
 
   it("cita el cargo previo que sí está en la hoja de vida", () => {
@@ -143,5 +171,35 @@ describe("profile rules", () => {
     assert.match(consulta, /excongresista/);
     assert.doesNotMatch(consulta, /Oyague/);
     assert.doesNotMatch(consulta, /elecciones regionales/);
+  });
+
+  it("no cierra una cifra del Perú con la fila que solo comparte el país", () => {
+    const rule = decide("el desempleo en el Peru ronda el 7 por ciento", {
+      ...profile,
+      party: "Podemos Perú",
+      record: [{ kind: "elected", text: "CONGRESISTA DE LA REPÚBLICA, PODEMOS PERU, 2020, 2021" }],
+    });
+    assert.equal(rule, null);
+    const consulta = webQuery("Daniel Urresti", "el desempleo en el Peru ronda el 7 por ciento", "Daniel Belizario Urresti Elera");
+    assert.match(consulta, /desempleo/);
+    assert.match(consulta, /Perú/);
+  });
+
+  it("busca la cifra en los medios aunque la nota no nombre al candidato", () => {
+    const foco = claimFocus("Daniel Urresti el desempleo en el Peru ronda el 7 por ciento", "Daniel Belizario Urresti Elera");
+    assert.match(foco, /desempleo/);
+    assert.doesNotMatch(foco, /Urresti/i);
+    assert.equal(
+      mentionsClaim("IPE", "La tasa de desempleo en el Perú se mantiene cerca del 7 por ciento.", foco, "Daniel Belizario Urresti Elera"),
+      true,
+    );
+    assert.equal(
+      mentionsClaim("RPP", "Perfil de Daniel Urresti, el exministro que llegó al Congreso.", foco, "Daniel Belizario Urresti Elera"),
+      false,
+    );
+    assert.equal(
+      mentionsClaim("RPP", "Crece la tasa de desempleo en España.", foco, "Daniel Belizario Urresti Elera"),
+      false,
+    );
   });
 });

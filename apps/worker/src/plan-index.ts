@@ -119,10 +119,10 @@ async function chunksFromPdf(codigoExpediente: string, preferredUrl: string, off
   return chunks.slice(0, 120);
 }
 
-async function downloadPdf(url: string): Promise<Uint8Array> {
+export async function downloadPdf(url: string, timeoutMs = 45_000): Promise<Uint8Array> {
   let waitMs = 2000;
   for (let attempt = 1; attempt <= 6; attempt += 1) {
-    const response = await fetch(url, { signal: AbortSignal.timeout(45000), redirect: "follow" });
+    const response = await fetch(url, { signal: AbortSignal.timeout(timeoutMs), redirect: "follow" });
     if (response.ok) return new Uint8Array(await response.arrayBuffer());
     const retryable = response.status === 429 || response.status >= 500;
     if (!retryable || attempt === 6) throw new Error(`PDF respondió ${response.status}`);
@@ -138,7 +138,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function splitPage(page: string): string[] {
+export function splitPage(page: string): string[] {
   const clean = page.replace(/\s+/g, " ").trim();
   if (clean.length < 40) return [];
   const parts: string[] = [];

@@ -1,7 +1,7 @@
 import { Component, signal } from "@angular/core";
 import type { ClaimVerdict, FactCheckResult, SourceRef } from "@tumi/contracts";
 import { ApiService } from "../api.service";
-import { primaryCitation, statusLabel, originLabel, stepLabel, stanceLabel, contrastSources, proofSources, classifierReading } from "../labels";
+import { primaryCitation, proofCitations, citationLabel, statusLabel, originLabel, stepLabel, stanceLabel, contrastSources, proofSources, classifierReading, firmnessCaption, firmnessWidth, verdictCertainty, evidenceNote, supportsCaption, deniesCaption } from "../labels";
 import { markdownToHtml } from "../markdown";
 import { SessionService } from "../session.service";
 
@@ -83,7 +83,15 @@ export class VerifyClaimPage {
   originLabel = originLabel;
   stanceLabel = stanceLabel;
   citation = primaryCitation;
+  citations = proofCitations;
+  citationLabel = citationLabel;
+  evidenceNote = evidenceNote;
+  supportsCaption = supportsCaption;
+  deniesCaption = deniesCaption;
   reading = (verdict: ClaimVerdict) => classifierReading(verdict.decisions);
+  firmnessCaption = firmnessCaption;
+  firmnessWidth = firmnessWidth;
+  verdictCertainty = verdictCertainty;
   asHtml = markdownToHtml;
 
   verdicts(): ClaimVerdict[] {

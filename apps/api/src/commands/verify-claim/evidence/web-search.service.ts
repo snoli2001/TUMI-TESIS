@@ -1,8 +1,9 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { tavily, type TavilySearchOptions } from "@tavily/core";
 import type { EvidenceItem } from "../graph/state";
-import { sameCandidate } from "../profile/rules";
-import { isFactCheckUrl, NEWS_DOMAINS, roleForUrl } from "./outlets";
+import { claimFocus, mentionsClaim, sameCandidate } from "../profile/rules";
+import { socialPostCounts } from "./attribution";
+import { isFactCheckUrl, isIpeUrl, isSocialUrl, NEWS_DOMAINS, roleForUrl, SOCIAL_DOMAINS, socialNetwork, trustedOutlet } from "./outlets";
 
 @Injectable()
 export class WebSearchService {
@@ -17,24 +18,92 @@ export class WebSearchService {
       .filter((item) => item.length >= 3)
       .slice(0, 3);
     if (queries.length === 0) return [];
-    const [lists, checks] = await Promise.all([
+    const focus = identity?.name ? claimFocus(queries[0], identity.name) : queries[0];
+    const aboutPerson = /reelec/i.test(queries[0]);
+    const aboutClaim = aboutPerson || focus.length < 8 ? queries[0] : focus;
+    const [lists, checks, trusted] = await Promise.all([
       Promise.all(queries.map((text) => this.one(text))),
-      this.factChecks(queries[0]),
+      this.factChecks(aboutClaim),
+      this.trustedPress(aboutClaim),
     ]);
-    const notes = unique([...checks, ...lists.flat()]);
+    const notes = unique([...checks, ...trusted, ...lists.flat()]);
     if (!identity?.name.trim()) return notes;
-    return notes.filter((item) => sameCandidate(item.title, item.snippet, identity));
+    return notes.filter((item) => {
+      if (isIpeUrl(item.url)) return true;
+      const aboutCandidate = sameCandidate(item.title, item.snippet, identity);
+      if (trustedOutlet(item.url) && mentionsClaim(item.title, item.snippet, queries[0], identity.name)) return true;
+      return aboutCandidate;
+    });
+  }
+
+  async socialPosts(statement: string, identity: { name: string; party?: string }): Promise<EvidenceItem[]> {
+    const quote = statement.replace(/["“”]/g, "").trim().slice(0, 240);
+    const name = identity.name.trim();
+    if (quote.length < 8 || name.length < 3) return [];
+    const query = `"${name}" "${quote}"`;
+    const options: TavilySearchOptions = {
+      topic: "general",
+      searchDepth: "advanced",
+      maxResults: 5,
+      includeDomains: SOCIAL_DOMAINS,
+      exactMatch: true,
+      includeRawContent: "text",
+    };
+    const restricted = await this.ask(query, { ...options, includeDomainsMode: "restrict" });
+    const pages =
+      restricted.length > 0
+        ? restricted
+        : (await this.ask(query, { ...options, includeDomainsMode: "prefer" })).filter((item) => isSocialUrl(item.url));
+    return pages.flatMap((item) => {
+      if (!socialPostCounts(item.title, item.snippet, statement, identity)) return [];
+      const network = socialNetwork(item.url) ?? "redes";
+      return [{ ...item, title: `Publicación en ${network}`, snippet: item.snippet.slice(0, 700), role: "prueba" as const }];
+    });
   }
 
   private async factChecks(text: string): Promise<EvidenceItem[]> {
-    const found = await this.ask(`${text} verificador La República`, {
-      topic: "general",
-      searchDepth: "advanced",
-      maxResults: 3,
-      includeDomains: ["larepublica.pe"],
-      includeDomainsMode: "restrict",
-    });
-    return found.filter((item) => isFactCheckUrl(item.url));
+    const [republica, peruCheck] = await Promise.all([
+      this.ask(text, {
+        topic: "general",
+        searchDepth: "advanced",
+        maxResults: 3,
+        includeDomains: ["larepublica.pe"],
+        includeDomainsMode: "restrict",
+      }),
+      this.ask(text, {
+        topic: "general",
+        searchDepth: "advanced",
+        maxResults: 3,
+        includeDomains: ["perucheck.pe"],
+        includeDomainsMode: "restrict",
+      }),
+    ]);
+    return [...republica.filter((item) => isFactCheckUrl(item.url)), ...peruCheck];
+  }
+
+  private async trustedPress(text: string): Promise<EvidenceItem[]> {
+    const domains = [
+      "rpp.pe",
+      "elcomercio.pe",
+      "larepublica.pe",
+      "andina.pe",
+      "ojo-publico.com",
+      "convoca.pe",
+      "idl-reporteros.pe",
+      "ipe.org.pe",
+    ];
+    const lists = await Promise.all(
+      domains.map((domain) =>
+        this.ask(text, {
+          topic: "general",
+          searchDepth: "advanced",
+          maxResults: 2,
+          includeDomains: [domain],
+          includeDomainsMode: "restrict",
+        }),
+      ),
+    );
+    return lists.flat();
   }
 
   private async one(text: string): Promise<EvidenceItem[]> {
@@ -67,14 +136,16 @@ export class WebSearchService {
         ...options,
       });
       return response.results.flatMap((result) => {
-        if (!result.content || !result.url) return [];
+        const raw = typeof result.rawContent === "string" ? result.rawContent : "";
+        const body = options.includeRawContent ? [result.content, raw].filter(Boolean).join("\n") : result.content;
+        if (!body || !result.url) return [];
         const role = roleForUrl(result.url);
         return [
           {
             id: result.id || `tavily-${hash(result.url)}`,
             title: result.title || result.url,
             url: result.url,
-            snippet: result.content.slice(0, 700),
+            snippet: body.slice(0, options.includeRawContent ? 4000 : 700),
             origin: "tavily" as const,
             role,
             stance: null,

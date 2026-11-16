@@ -2,7 +2,7 @@ import { Component, inject, signal } from "@angular/core";
 import { DomSanitizer, type SafeResourceUrl } from "@angular/platform-browser";
 import type { AfirmacionDeVideo, ClaimVerdict, VerificarVideoResult } from "@tumi/contracts";
 import { ApiService } from "../api.service";
-import { primaryCitation, statusLabel, originLabel, stepLabel, stanceLabel, contrastSources, proofSources, classifierReading } from "../labels";
+import { primaryCitation, proofCitations, citationLabel, statusLabel, originLabel, stepLabel, stanceLabel, contrastSources, proofSources, classifierReading, firmnessCaption, firmnessWidth, evidenceNote, supportsCaption, deniesCaption } from "../labels";
 import { markdownToHtml } from "../markdown";
 import { SessionService } from "../session.service";
 
@@ -34,7 +34,14 @@ export class VerifyVideoPage {
   proof = proofSources;
   contrast = contrastSources;
   citation = primaryCitation;
+  citations = proofCitations;
+  citationLabel = citationLabel;
+  evidenceNote = evidenceNote;
+  supportsCaption = supportsCaption;
+  deniesCaption = deniesCaption;
   reading = (verdict: ClaimVerdict) => classifierReading(verdict.decisions);
+  firmnessCaption = firmnessCaption;
+  firmnessWidth = firmnessWidth;
   asHtml = markdownToHtml;
 
   private readonly sanitizer = inject(DomSanitizer);

@@ -64,23 +64,25 @@
             <p class="eyebrow">Afirmación</p>
             <p>{{ afirmacion.verdicts[0]?.claim || afirmacion.query }}</p>
           </div>
-          @if (citation(afirmacion.sources); as source) {
-            <div>
-              <p class="eyebrow">Plan de gobierno</p>
-              <p>{{ source.snippet }}</p>
-              <p class="muted">
-                @if (source.codigoExpediente) {
-                  {{ source.codigoExpediente }}
+          <div class="citas">
+            @for (source of citations(afirmacion.sources); track source.id) {
+              <div>
+                <p class="eyebrow">{{ citationLabel(source) }}</p>
+                <p>{{ source.snippet }}</p>
+                <p class="muted">
+                  @if (source.codigoExpediente) {
+                    {{ source.codigoExpediente }}
+                  }
+                  @if (source.pagina !== null) {
+                    · página {{ source.pagina }}
+                  }
+                </p>
+                @if (source.url) {
+                  <a [href]="source.url" target="_blank" rel="noreferrer">Abrir esta página</a>
                 }
-                @if (source.pagina !== null) {
-                  · página {{ source.pagina }}
-                }
-              </p>
-              @if (source.url) {
-                <a [href]="source.url" target="_blank" rel="noreferrer">Abrir esta página</a>
-              }
-            </div>
-          }
+              </div>
+            }
+          </div>
         </div>
         @for (persona of afirmacion.entities; track persona.id) {
           <p class="identidad">
@@ -99,17 +101,20 @@
         }
         @if (afirmacion.verdicts[0]; as verdict) {
           @if (reading(verdict); as scores) {
+            @if (scores.supports !== null || scores.denies !== null || scores.strength !== null) {
+              <p class="muted meter-note">{{ evidenceNote(citations(afirmacion.sources).length) }}</p>
+            }
             @if (scores.supports !== null) {
-              <p class="muted">Respalda {{ (scores.supports * 100).toFixed(0) }}%</p>
+              <p class="meter">{{ supportsCaption(citations(afirmacion.sources).length) }} <strong>{{ (scores.supports * 100).toFixed(0) }}%</strong></p>
               <div class="bar"><span [style.width.%]="scores.supports * 100"></span></div>
             }
             @if (scores.denies !== null) {
-              <p class="muted">Niega {{ (scores.denies * 100).toFixed(0) }}%</p>
+              <p class="meter">{{ deniesCaption(citations(afirmacion.sources).length) }} <strong>{{ (scores.denies * 100).toFixed(0) }}%</strong></p>
               <div class="bar"><span [style.width.%]="scores.denies * 100"></span></div>
             }
             @if (scores.strength !== null) {
-              <p class="muted">Solidez @if (scores.strengthText) { {{ scores.strengthText }} }</p>
-              <div class="bar"><span [style.width.%]="scores.strength * 100"></span></div>
+              <p class="meter">{{ firmnessCaption(scores.strengthText) }}</p>
+              <div class="bar"><span [style.width.%]="firmnessWidth(scores.strengthText, scores.strength)"></span></div>
             }
           }
         }

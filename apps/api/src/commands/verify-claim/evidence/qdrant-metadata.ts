@@ -1,4 +1,4 @@
-export const EVIDENCE_ORIGINS = ["plan", "adjunto", "documento"] as const;
+export const EVIDENCE_ORIGINS = ["plan", "adjunto", "documento", "norma"] as const;
 export type EvidenceOrigin = (typeof EVIDENCE_ORIGINS)[number];
 
 export interface EvidenceChunk {
@@ -12,6 +12,7 @@ export interface EvidenceChunk {
   sessionId: string | null;
   hojaVidaId?: string | null;
   documentId?: string | null;
+  edicion?: string | null;
 }
 
 export interface EvidenceScope {
@@ -65,6 +66,21 @@ export function evidenceFilter(scope: EvidenceScope): EvidenceFilter | null {
   return should.length > 0 ? { should } : null;
 }
 
+export function statuteFilter(ids: string[]): EvidenceFilter | null {
+  const chosen = [...new Set(ids.filter((value) => value.length > 0))];
+  if (chosen.length === 0) return null;
+  return {
+    should: [
+      {
+        must: [
+          { key: "origen", match: { value: "norma" } },
+          { key: "documentId", match: { any: chosen } },
+        ],
+      },
+    ],
+  };
+}
+
 export function chunkPayload(chunk: EvidenceChunk): Record<string, string | number> {
   if (chunk.origen === "plan" && !chunk.codigoExpediente) {
     throw new Error("Un fragmento de plan necesita codigoExpediente");
@@ -74,6 +90,9 @@ export function chunkPayload(chunk: EvidenceChunk): Record<string, string | numb
   }
   if (chunk.origen === "documento" && (!chunk.hojaVidaId || !chunk.documentId)) {
     throw new Error("Un fragmento de documento necesita hojaVidaId y documentId");
+  }
+  if (chunk.origen === "norma" && !chunk.documentId) {
+    throw new Error("Un fragmento de norma necesita documentId");
   }
   const payload: Record<string, string | number> = {
     fragmentoId: chunk.id,
@@ -87,5 +106,6 @@ export function chunkPayload(chunk: EvidenceChunk): Record<string, string | numb
   if (chunk.sessionId) payload.sessionId = chunk.sessionId;
   if (chunk.hojaVidaId) payload.hojaVidaId = chunk.hojaVidaId;
   if (chunk.documentId) payload.documentId = chunk.documentId;
+  if (chunk.edicion) payload.edicion = chunk.edicion;
   return payload;
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { bestMatch, mentions, leadingNames, namesInText, evidenceFits } from "./mentions";
+import { bestMatch, mentions, leadingNames, namesInText, evidenceFits, coverOutlets } from "./mentions";
 
 test("toma el apodo en mayúscula y no la primera palabra de la frase", () => {
   assert.deepEqual(mentions("Los trenes de Porky no sirven"), ["Porky"]);
@@ -63,6 +63,15 @@ test("una nota que no menciona el hecho no sirve de prueba", () => {
     snippet: "Allison cuestionó que el JNE no haya establecido este criterio con anticipación.",
   };
   assert.equal(evidenceFits(["Lopez aliaga es un violador"], nota, ["Lopez", "aliaga"]), false);
+});
+
+test("conserva un medio que el reorden dejó fuera", () => {
+  const hoja = { id: "hoja", url: null };
+  const rpp = { id: "rpp", url: "https://rpp.pe/economia/desempleo" };
+  const ipe = { id: "ipe", url: "https://www.ipe.org.pe/desempleo" };
+  const outletOf = (url: string | null) => (url?.includes("ipe.org.pe") ? "IPE" : url?.includes("rpp.pe") ? "RPP" : null);
+  const kept = coverOutlets([hoja, rpp], [hoja, rpp, ipe], outletOf, 8);
+  assert.deepEqual(kept.map((item) => item.id), ["hoja", "rpp", "ipe"]);
 });
 
 test("arma nombres propios a partir del texto del buscador", () => {

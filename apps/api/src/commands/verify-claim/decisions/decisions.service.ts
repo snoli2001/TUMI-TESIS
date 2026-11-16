@@ -5,6 +5,7 @@ import OpenAI from "openai";
 import type { DecisionCreateParams } from "openai/resources/decisions";
 import { decisionMinConfidence, relevanceMin } from "../../../shared/text";
 import type { EvidenceItem } from "../graph/state";
+import { trustedOutlet } from "../evidence/outlets";
 
 type DecisionQuestion = DecisionCreateParams["questions"][number];
 
@@ -114,7 +115,9 @@ export class DecisionsService {
         evidencia: evidence.map((item) => ({
           id: item.id,
           origen: item.origin,
+          medio: trustedOutlet(item.url),
           titulo: item.title,
+          url: item.url,
           texto: item.snippet,
         })),
       },
@@ -133,7 +136,7 @@ export class DecisionsService {
           type: "choice",
           name: "veredicto",
           instructions:
-            "Clasifica el claim solo con la evidencia adjunta. Una nota que no menciona el hecho no es evidencia. Si el claim atribuye un delito, solo es verdadero cuando una fuente de prueba cita una condena firme por ese hecho. Si ninguna fuente de prueba registra esa condena, elige falso: la afirmación no está acreditada. Elige no_verificable solo si una fuente de prueba describe un proceso judicial todavía abierto.",
+            "Clasifica el claim solo con la evidencia adjunta. Una nota que no menciona el hecho no es evidencia. Contrasta el claim con todas las fuentes de prueba que hablan del hecho: si varias coinciden, sigue al conjunto y no a una sola nota. RPP, El Comercio, La República, Agencia Andina, OjoPúblico, Convoca, IDL-Reporteros, PerúCheck, el Verificador de La República y el IPE son fuentes de prueba: un dato que publican sobre el hecho se toma como cierto. Si PerúCheck o larepublica.pe/verificador publican un chequeo de este candidato y este dato, elige el veredicto de ese chequeo. Si el padrón muestra otro cargo para estas elecciones, el claim de que será ese otro cargo es falso. Una nota puede explicar el motivo, como la prohibición de reelección inmediata. Haber ocupado el cargo antes no vuelve verdadero el claim de que lo será ahora. Si el claim atribuye un delito, solo es verdadero cuando una fuente de prueba cita una condena firme por ese hecho. Si ninguna fuente de prueba registra esa condena, elige falso: la afirmación no está acreditada. Elige no_verificable solo si una fuente de prueba describe un proceso judicial todavía abierto. Una denuncia, aunque la recoja uno de esos medios, no es una condena. Una norma (Constitución, Compendio electoral, Ley de municipalidades, Código Procesal Penal, Ley del Poder Ejecutivo, Código Penal, Código Civil o Ley de transparencia) explica la regla, con su nombre y página, y no prueba por sí sola que el candidato hizo el hecho. El Código Penal define un delito y una pena; no acredita que el candidato lo haya cometido. El Código Procesal Penal distingue denuncia, investigación, acusación y sentencia: una noticia de denuncia no se convierte en condena porque el código describa la denuncia.",
           choices: [
             {
               value: "verdadero",

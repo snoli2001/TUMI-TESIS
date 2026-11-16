@@ -4,6 +4,8 @@ import { ChatOpenAI } from "@langchain/openai";
 import type { ClaimImage } from "@tumi/contracts";
 import { deterministicClaims, textOf } from "../../../shared/text";
 import type { TumiState } from "../graph/state";
+import { parseImageReading, type ImageReading } from "./image-reading";
+import { trustedOutlet } from "../evidence/outlets";
 import { searchQueries, webQuery, type QuestionKind } from "../profile/rules";
 
 @Injectable()
@@ -14,33 +16,33 @@ export class LlmService {
     return Boolean(process.env.OPENAI_API_KEY);
   }
 
-  async readClaim(image: ClaimImage, candidate: string): Promise<string> {
+  async readClaim(image: ClaimImage, candidate: string): Promise<ImageReading> {
     if (!this.enabled()) throw new Error("Sin clave de OpenAI no se puede leer la imagen");
     const model = new ChatOpenAI({
-      model: process.env.OPENAI_MODEL_MINI || "gpt-4.1-mini",
+      model: process.env.OPENAI_MODEL_MINI || "gpt-5.4-mini",
       apiKey: process.env.OPENAI_API_KEY,
     });
     const response = await model.invoke([
       new SystemMessage(
-        `La imagen corresponde únicamente a ${candidate}. Ese es el único contexto: no identifiques a otra persona. Cualquier nombre, cargo o partido visible se lee como ese candidato. Devuelve solo JSON {"claim": string}. El claim es una oración en español con la afirmación verificable que la imagen sostiene sobre esa persona, e incluye su nombre. No agregues datos que no estén en la imagen. Si no hay una afirmación comprobable, devuelve {"claim": ""}.`,
+        `La imagen se contrasta solo respecto de ${candidate}. Transcribe el nombre, el cargo y el partido tal como aparecen: no los reescribas hacia esta persona. Devuelve solo JSON {"kind":"statement"|"claim"|"record"|"other","claims":string[]}. statement: una nota, una cita o una publicación donde esta persona declara algo; claims son lo que dijo, hasta 4 oraciones, y no incluyen el cargo ni el partido. claim: una afirmación de un tercero sobre esta persona; claims tiene esa afirmación. record: una captura de hoja de vida o del padrón; claims describe el cargo y el partido que se ven. other: no hay una declaración ni una afirmación comprobable; claims es []. No inventes datos que no estén en la imagen.`,
       ),
       new HumanMessage({
         content: [
-          { type: "text", text: "Lee la afirmación de la imagen." },
+          { type: "text", text: "Clasifica la imagen y extrae lo que hay que contrastar." },
           { type: "image_url", image_url: { url: `data:${image.mediaType};base64,${image.data}` } },
         ],
       }),
     ]);
-    const claim = parseClaim(textOf(response.content));
-    if (!claim) throw new Error("La imagen no contiene una afirmación para contrastar");
-    return claim;
+    const reading = parseImageReading(textOf(response.content));
+    if (reading.kind === "other") throw new Error("La imagen no contiene una afirmación para contrastar");
+    return reading;
   }
 
   async extractClaims(query: string): Promise<string[]> {
     if (!this.enabled()) return deterministicClaims(query);
     try {
       const model = new ChatOpenAI({
-        model: process.env.OPENAI_MODEL_MINI || "gpt-5.1-mini",
+        model: process.env.OPENAI_MODEL_MINI || "gpt-5.4-mini",
         apiKey: process.env.OPENAI_API_KEY,
       });
       const response = await model.invoke([
@@ -63,7 +65,7 @@ export class LlmService {
     if (!this.enabled()) return base;
     try {
       const model = new ChatOpenAI({
-        model: process.env.OPENAI_MODEL_MINI || "gpt-5.1-mini",
+        model: process.env.OPENAI_MODEL_MINI || "gpt-5.4-mini",
         apiKey: process.env.OPENAI_API_KEY,
       });
       const goal =
@@ -101,7 +103,7 @@ export class LlmService {
       });
       const stream = await model.stream([
         new SystemMessage(
-          "Redacta en español una explicación breve para un ciudadano. Los veredictos ya están decididos y no puedes cambiarlos. Si no hay entidades, no inventes nombre, cargo ni partido. Solo las fuentes con rol prueba sostienen el veredicto. Si una fuente se titula Hoja de vida, esa declaración es la fuente oficial del antecedente: cítala primero y no la sustituyas por una nota. Una nota solo informa denuncias o expedientes públicos. Si la URL es larepublica.pe/verificador, es un chequeo publicado del Verificador de La República: cítalo como tal y no lo trates como un rumor. Si la fuente es el plan de gobierno, úsalo para lo prometido por escrito; una nota solo muestra que lo dijo en público. Si el claim atribuye un delito y ninguna fuente de prueba cita una condena, dilo en la primera oración y no dejes el hecho como una posibilidad. Las fuentes de contraste no se citan ni se parafrasean: di solo que circulan menciones no verificadas y que no acreditan el hecho. Separa los argumentos en párrafos cortos y viñetas que empiecen con '- '. Usa **negrita** solo para el veredicto. Si el resultado está degradado, dilo.",
+          "Redacta en español una explicación breve para un ciudadano. Los veredictos ya están decididos y no puedes cambiarlos. Si no hay entidades, no inventes nombre, cargo ni partido. Solo las fuentes con rol prueba sostienen el veredicto. Si una fuente se titula Hoja de vida, esa declaración es la fuente oficial del antecedente: cítala primero y no la sustituyas por una nota. Una nota solo informa denuncias o expedientes públicos. RPP, El Comercio, La República, Agencia Andina, OjoPúblico, Convoca, IDL-Reporteros y el IPE son fuentes de prueba: lo que publican sobre el hecho se toma como cierto. Cita cada uno de esos medios que habla del hecho, con su nombre, y no te quedes con una sola nota. PerúCheck y larepublica.pe/verificador son chequeos publicados: cítalos por su nombre y no los trates como un rumor. Si la fuente es el plan de gobierno, úsalo para lo prometido por escrito; una nota solo muestra que lo dijo en público. Si el padrón muestra el cargo al que postula en 2026, ese es el dato oficial de la candidatura. Si una nota explica que no puede postular al cargo afirmado porque la reelección inmediata está prohibida, incluye ese motivo y cita el medio. Haber ocupado el cargo antes no convierte en verdadero el claim de que lo será ahora. Si la fuente es una norma, explica qué exige o permite, con su nombre y su página, y menciona la edición cuando el fragmento la trae. El Código Penal no demuestra que la persona cometió el delito. El Código Procesal Penal no convierte una denuncia en condena. Si el claim atribuye un delito y ninguna fuente de prueba cita una condena, dilo en la primera oración y no dejes el hecho como una posibilidad. Las fuentes de contraste no se citan ni se parafrasean: di solo que circulan menciones no verificadas y que no acreditan el hecho. Separa los argumentos en párrafos cortos y viñetas que empiecen con '- '. Usa **negrita** solo para el veredicto. Si el resultado está degradado, dilo.",
         ),
         new HumanMessage(
           JSON.stringify({
@@ -115,7 +117,8 @@ export class LlmService {
             })),
             fuentes: state.evidence.map((item) => ({
               titulo: item.title,
-              origen: item.origin,
+              origen: citedOrigin(item),
+              medio: trustedOutlet(item.url),
               rol: item.role,
               postura: item.stance,
               texto: item.snippet,
@@ -156,17 +159,6 @@ function parseQueries(raw: string): string[] {
   }
 }
 
-function parseClaim(raw: string): string {
-  const json = raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1);
-  if (!json) return "";
-  try {
-    const parsed = JSON.parse(json) as { claim?: unknown };
-    return typeof parsed.claim === "string" ? parsed.claim.replace(/\s+/g, " ").trim().slice(0, 500) : "";
-  } catch {
-    return "";
-  }
-}
-
 function parseClaims(raw: string): string[] {
   const json = raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1);
   if (!json) return [];
@@ -181,6 +173,12 @@ function parseClaims(raw: string): string[] {
   } catch {
     return [];
   }
+}
+
+function citedOrigin(item: { origin: string; title: string }): string {
+  if (item.origin !== "qdrant") return item.origin;
+  const name = item.title.replace(/, p\. \d+$/, "").trim();
+  return name || item.title;
 }
 
 function originLabel(origin: string): string {

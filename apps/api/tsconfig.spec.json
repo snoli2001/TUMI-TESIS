@@ -13,6 +13,9 @@
     "src/commands/verify-claim/drafting/image-claim.test.ts",
     "src/commands/verify-claim/evidence/outlets.ts",
     "src/commands/verify-claim/evidence/outlets.test.ts",
+    "src/commands/verify-claim/evidence/attribution.ts",
+    "src/commands/verify-claim/evidence/attribution.test.ts",
+    "src/shared/text.ts",
     "src/queries/search-candidates/scope.ts",
     "src/queries/search-candidates/scope.test.ts",
     "src/shared/auth/gestor-password.ts",
@@ -23,5 +26,7 @@
     "src/commands/manage-documents/retention.test.ts",
     "src/commands/verify-claim/evidence/qdrant-metadata.ts",
     "src/commands/verify-claim/evidence/qdrant-metadata.test.ts",
+    "src/commands/verify-claim/evidence/statutes.ts",
+    "src/commands/verify-claim/evidence/statutes.test.ts",
   ]
 }

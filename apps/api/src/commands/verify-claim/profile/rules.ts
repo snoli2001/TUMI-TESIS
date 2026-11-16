@@ -102,6 +102,22 @@ const FILLER = new Set([
   "dona",
 ]);
 
+export function asksOtherOffice(query: string, office: string): boolean {
+  const claimed = claimedOffice(query);
+  return claimed !== null && !fold(office).includes(claimed);
+}
+
+export function officeQueries(name: string, query: string, office: string): string[] {
+  if (!asksOtherOffice(query, office)) return [];
+  const claimed = claimedOffice(query) ?? "";
+  return [`${name} reelección ${claimed}`, `${name} no puede postular a ${claimed} 2026`];
+}
+
+function claimedOffice(query: string): string | null {
+  const folded = fold(query);
+  return OFFICES.find((item) => folded.includes(item)) ?? null;
+}
+
 export function questionKind(query: string): QuestionKind {
   const folded = fold(query);
   if (CRIME_WORDS.some((word) => folded.includes(word)) || /penal|antecedente|proceso|sentencia|condena|\bdelito\b/.test(folded)) {
@@ -220,11 +236,11 @@ export function decide(query: string, profile: OfficialProfile): ProfileRule | n
   if (/universidad|bachiller|egresad|abogado|ingeniero|medico/.test(folded)) {
     return recordOrFalse(query, profile, "study", "estudios");
   }
-  if (/trabajo|gerente|empleo|empresa/.test(folded)) {
+  if (/\b(trabajo|gerente|empleo|empresa)\b/.test(folded)) {
     return recordOrFalse(query, profile, "work", "experiencia laboral");
   }
 
-  const row = profile.record.find((item) => matches(query, item.text, profile.name));
+  const row = profile.record.find((item) => matches(query, item.text, profile.name, item.kind));
   if (row) {
     return {
       kind: "verdict",
@@ -241,7 +257,28 @@ export function decide(query: string, profile: OfficialProfile): ProfileRule | n
 export function webQuery(shortName: string, query: string, fullName: string): string {
   const fact = factTokens(query, fullName).slice(0, 8).join(" ");
   const year = /postul|candidat|alcald|2026/.test(fold(query)) ? "2026" : "";
-  return [shortName, fact, year].filter(Boolean).join(" ").slice(0, 180);
+  const country = /\bperu\b/.test(fold(query)) ? "Perú" : "";
+  return [shortName, fact, country, year].filter(Boolean).join(" ").slice(0, 180);
+}
+
+export function claimFocus(query: string, name: string): string {
+  const skipped = new Set(fold(name).split(/\s+/).filter((word) => word.length > 2));
+  return (query.match(/\p{L}+|\d+/gu) ?? [])
+    .filter((word) => !skipped.has(fold(word)))
+    .join(" ")
+    .slice(0, 180);
+}
+
+export function mentionsClaim(title: string, snippet: string, query: string, name: string): boolean {
+  const skipped = new Set(fold(name).split(/\s+/).filter((word) => word.length > 2));
+  const text = fold(`${title} ${snippet}`);
+  const queryFolded = fold(query);
+  const tokens = (query.match(/\p{L}+/gu) ?? [])
+    .map(fold)
+    .filter((word) => word.length >= 5 && !skipped.has(word));
+  if (!tokens.some((token) => text.includes(token))) return false;
+  if (/\bperu\b/.test(queryFolded) && !/\bperu\b/.test(text)) return false;
+  return true;
 }
 
 function priorOffice(profile: OfficialProfile, key: string): ProfileRule {
@@ -403,7 +440,8 @@ function factTokens(query: string, name: string): string[] {
   return tokens;
 }
 
-function matches(query: string, text: string, name: string): boolean {
+function matches(query: string, text: string, name: string, kind?: OfficialProfile["record"][number]["kind"]): boolean {
+  if (kind === "elected" && !officeAgrees(query, text)) return false;
   const folded = fold(text);
   return factTokens(query, name).some((token) => {
     const tokenFolded = fold(token);
@@ -411,6 +449,12 @@ function matches(query: string, text: string, name: string): boolean {
     const root = tokenFolded.startsWith("ex") && tokenFolded.length > 6 ? tokenFolded.slice(2) : tokenFolded;
     return folded.includes(root);
   });
+}
+
+function officeAgrees(query: string, text: string): boolean {
+  const named = OFFICES.find((office) => fold(query).includes(office));
+  if (!named) return true;
+  return fold(text).includes(named);
 }
 
 function fold(value: string): string {

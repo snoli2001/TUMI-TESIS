@@ -1,8 +1,9 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { EntityRef } from "@tumi/contracts";
-import { questionKind, sameCandidate } from "../profile/rules";
+import { trustedOutlet } from "../evidence/outlets";
+import { mentionsClaim, questionKind, sameCandidate } from "../profile/rules";
 import type { AgentDeps, StreamHooks, TumiState } from "./state";
-import { evidenceFits, leadingNames } from "./mentions";
+import { coverOutlets, evidenceFits, leadingNames } from "./mentions";
 
 function hooks(config: RunnableConfig): StreamHooks {
   return (
@@ -82,16 +83,21 @@ export async function retrieve(
   const identity = state.entities[0];
   const proof = found.filter((item) => {
     if (item.role === "contraste") return false;
-    if (item.origin === "tavily" && identity && !sameCandidate(item.title, item.snippet, { name: identity.nombre, party: identity.partido })) {
-      return false;
+    if (item.origin === "tavily" && identity) {
+      const named = sameCandidate(item.title, item.snippet, { name: identity.nombre, party: identity.partido });
+      const onClaim =
+        Boolean(trustedOutlet(item.url)) &&
+        mentionsClaim(item.title, item.snippet, `${state.query} ${state.claims.join(" ")}`, identity.nombre);
+      if (!named && !onClaim) return false;
     }
     return evidenceFits(state.claims, item, names);
   });
   const contrast = found.filter((item) => !proof.includes(item));
   const ranked = await deps.rerank(state.claims, proof);
+  const kept = coverOutlets(ranked, proof, trustedOutlet);
   const circulation = await deps.classifyCirculation(state.claims, contrast);
   stream.onNode("recuperacion", "done");
-  return { evidence: [...ranked, ...circulation] };
+  return { evidence: [...kept, ...circulation] };
 }
 
 export async function verify(

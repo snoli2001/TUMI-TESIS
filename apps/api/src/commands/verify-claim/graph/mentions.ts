@@ -130,6 +130,30 @@ export function leadingNames(query: string): string[] {
   return [first, second];
 }
 
+export function coverOutlets<T extends { id: string; url: string | null }>(
+  ranked: T[],
+  proof: T[],
+  outletOf: (url: string | null) => string | null,
+  cap = 8,
+): T[] {
+  const covered = new Set<string>();
+  for (const item of ranked) {
+    const outlet = outletOf(item.url);
+    if (outlet) covered.add(outlet);
+  }
+  const extra: T[] = [];
+  const seen = new Set(ranked.map((item) => item.id));
+  for (const item of proof) {
+    const outlet = outletOf(item.url);
+    if (!outlet || covered.has(outlet) || seen.has(item.id)) continue;
+    covered.add(outlet);
+    seen.add(item.id);
+    extra.push(item);
+  }
+  const room = Math.max(0, cap - extra.length);
+  return [...ranked.slice(0, room), ...extra];
+}
+
 export function evidenceFits(
   claims: string[],
   item: { origin: string; title: string; snippet: string },

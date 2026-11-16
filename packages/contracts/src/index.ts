@@ -3,6 +3,7 @@ import {
   SOURCE_ORIGINS,
   SOURCE_ROLES,
   SOURCE_STANCES,
+  VERDICT_CHECKS,
   VERDICTS,
   type ClaimVerdict,
   type DecisionAnswer,
@@ -86,6 +87,7 @@ export const claimVerdictSchema: z.ZodType<ClaimVerdict> = z.object({
   explanation: z.string(),
   decisions: z.array(decisionAnswerSchema),
   sources: z.array(sourceSchema),
+  check: z.enum(VERDICT_CHECKS).optional(),
 });
 
 export const factCheckResultSchema: z.ZodType<FactCheckResult> = z.object({

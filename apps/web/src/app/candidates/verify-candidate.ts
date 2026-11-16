@@ -2,12 +2,22 @@ import { Component, DestroyRef, ElementRef, inject, input, signal, viewChild } f
 import type { ClaimVerdict, FactCheckResult, SourceRef } from "@tumi/contracts";
 import { ApiService } from "../api.service";
 import {
+  checkQuestion,
   citationLabel,
   classifierReading,
+  contrastedWith,
+  deniesCaption,
+  evidenceNote,
+  firmnessCaption,
+  firmnessWidth,
+  verdictCertainty,
   contrastSources,
-  originLabel,
+  documentName,
   primaryCitation,
+  proofCitations,
   proofSources,
+  sourceLinkText,
+  supportsCaption,
   stanceLabel,
   statusLabel,
   stepLabel,
@@ -59,15 +69,26 @@ export class VerifyCandidate {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (!file) return;
+    if (!this.acceptImage(file)) input.value = "";
+  }
+
+  onPaste(event: ClipboardEvent): void {
+    const file = pastedImage(event.clipboardData);
+    if (!file) return;
+    event.preventDefault();
+    if (!this.acceptImage(file)) return;
+    const input = this.fileInput()?.nativeElement;
+    if (input) input.value = "";
+  }
+
+  private acceptImage(file: File): boolean {
     if (!IMAGE_TYPES.has(file.type)) {
       this.error.set("La imagen debe ser JPG, PNG o WebP");
-      input.value = "";
-      return;
+      return false;
     }
     if (file.size > IMAGE_LIMIT_BYTES) {
       this.error.set("La imagen supera 4 MB");
-      input.value = "";
-      return;
+      return false;
     }
     const reader = new FileReader();
     reader.onload = () => {
@@ -80,6 +101,7 @@ export class VerifyCandidate {
       this.error.set("");
     };
     reader.readAsDataURL(file);
+    return true;
   }
 
   clearImage(): void {
@@ -153,14 +175,32 @@ export class VerifyCandidate {
 
   stepLabel = stepLabel;
   statusLabel = statusLabel;
-  originLabel = originLabel;
   stanceLabel = stanceLabel;
   citation = primaryCitation;
+  citations = proofCitations;
   citationLabel = citationLabel;
+  evidenceNote = evidenceNote;
+  supportsCaption = supportsCaption;
+  deniesCaption = deniesCaption;
+  checkQuestion = checkQuestion;
+  contrastedWith = contrastedWith;
+  firmnessCaption = firmnessCaption;
+  firmnessWidth = firmnessWidth;
+  verdictCertainty = verdictCertainty;
+  documentName = documentName;
+  sourceLinkText = sourceLinkText;
   reading = (verdict: ClaimVerdict) => classifierReading(verdict.decisions);
   asHtml = markdownToHtml;
 
   verdicts(): ClaimVerdict[] {
     return this.result()?.verdicts ?? [];
   }
+}
+
+function pastedImage(data: DataTransfer | null): File | null {
+  if (!data) return null;
+  const item = Array.from(data.items).find((entry) => entry.kind === "file" && entry.type.startsWith("image/"));
+  const fromItem = item?.getAsFile();
+  if (fromItem) return fromItem;
+  return Array.from(data.files).find((file) => file.type.startsWith("image/")) ?? null;
 }
