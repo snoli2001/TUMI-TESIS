@@ -1,6 +1,7 @@
 import { Body, Controller, Headers, Post, Res } from "@nestjs/common";
 import type { Response } from "express";
 import { factCheckRequestSchema } from "@tumi/contracts";
+import { ApiFactCheckStream } from "../../shared/openapi";
 import { sendHttpError } from "../../shared/http-error";
 import { openSession } from "../../shared/session/session-access";
 import { imageBytes } from "./drafting/image-bytes";
@@ -11,6 +12,7 @@ export class VerifyClaimController {
   constructor(private readonly afirmacion: VerifyClaimHandler) {}
 
   @Post("stream")
+  @ApiFactCheckStream()
   async stream(
     @Body() body: unknown,
     @Headers("x-session-key") accessKey: string | undefined,

@@ -2,6 +2,14 @@ import { Body, Controller, Delete, Get, Headers, Param, Post, Query, Req, UseGua
 import type { Request } from "express";
 import { GestorAccounts } from "../../shared/auth/gestor-accounts";
 import { GestorGuard } from "../../shared/auth/gestor.guard";
+import {
+  ApiGestorCreateAccount,
+  ApiGestorDeleteDocument,
+  ApiGestorDocument,
+  ApiGestorDocuments,
+  ApiGestorRetention,
+  ApiGestorUpload,
+} from "../../shared/openapi";
 import { ApplyRetentionHandler } from "./apply-retention.handler";
 import { DeleteDocumentHandler, documentStatus, listDocuments } from "./delete-document.handler";
 import { UploadDocumentHandler } from "./upload-document.handler";
@@ -17,16 +25,19 @@ export class GestorDocumentsController {
   ) {}
 
   @Post("cuentas")
+  @ApiGestorCreateAccount()
   createAccount(@Body() body: unknown) {
     return this.accounts.create(body);
   }
 
   @Get("documentos")
+  @ApiGestorDocuments()
   list(@Query("hojaVidaId") hojaVidaId?: string) {
     return listDocuments(hojaVidaId);
   }
 
   @Post("documentos")
+  @ApiGestorUpload()
   uploadPdf(
     @Headers("x-hoja-vida-id") hojaVidaId: string | undefined,
     @Headers("x-filename") filename: string | undefined,
@@ -36,16 +47,19 @@ export class GestorDocumentsController {
   }
 
   @Get("documentos/:id")
+  @ApiGestorDocument()
   status(@Param("id") id: string) {
     return documentStatus(id);
   }
 
   @Delete("documentos/:id")
+  @ApiGestorDeleteDocument()
   removePdf(@Param("id") id: string) {
     return this.remove.execute(id);
   }
 
   @Post("retencion")
+  @ApiGestorRetention()
   runRetention() {
     return this.retention.execute();
   }

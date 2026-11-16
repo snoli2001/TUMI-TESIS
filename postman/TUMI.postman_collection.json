@@ -1,0 +1,498 @@
+{
+  "info": {
+    "name": "TUMI",
+    "description": "Endpoints del API para comprobar una afirmación electoral.\n\nEl video no está en esta colección.\n\nCómo usarla:\n1. Importa también `TUMI.local.postman_environment.json` y selecciónalo.\n2. `baseUrl` apunta a `http://localhost:3000/api` (pnpm dev). Con Docker usa `http://localhost:8080/api`.\n3. Corre la carpeta Geografía y después Candidatos. Esas peticiones guardan el distrito y el `hojaVidaId`.\n4. Verificar afirmación y Historial usan la llave de visita que la colección crea sola (`sessionId` y `sessionKey`).\n5. El gestor usa la cookie `tumi_gestor`. Entra con el correo y la contraseña de tu `.env`. Postman guarda la cookie si el cookie jar está activo.\n\nHay un tope de 30 POST por minuto por IP.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000/api" },
+    { "key": "sessionId", "value": "" },
+    { "key": "sessionKey", "value": "" },
+    { "key": "departmentCode", "value": "" },
+    { "key": "provinceCode", "value": "" },
+    { "key": "districtCode", "value": "" },
+    { "key": "hojaVidaId", "value": "" },
+    { "key": "q", "value": "garcia" },
+    { "key": "documentId", "value": "" },
+    { "key": "gestorEmail", "value": "" },
+    { "key": "gestorPassword", "value": "" }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const uuid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {",
+          "  const r = (Math.random() * 16) | 0;",
+          "  const v = c === 'x' ? r : (r & 0x3) | 0x8;",
+          "  return v.toString(16);",
+          "});",
+          "if (!pm.collectionVariables.get('sessionId')) {",
+          "  pm.collectionVariables.set('sessionId', uuid());",
+          "}",
+          "const key = pm.collectionVariables.get('sessionKey') || '';",
+          "if (key.length < 16) {",
+          "  pm.collectionVariables.set('sessionKey', (uuid() + uuid()).replace(/-/g, ''));",
+          "}"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Salud",
+      "item": [
+        {
+          "name": "Estado del API",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/health",
+            "description": "Dice si Postgres, Redis y Qdrant responden. `status` puede ser `ok` o `degraded`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('trae el estado', () => pm.expect(body).to.have.property('status'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Geografía",
+      "description": "Corre estas tres en orden. Cada una guarda el código para la siguiente.",
+      "item": [
+        {
+          "name": "Departamentos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/geo/departments"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const rows = pm.response.json();",
+                  "pm.test('hay departamentos', () => pm.expect(rows.length).to.be.above(0));",
+                  "if (rows[0]) pm.collectionVariables.set('departmentCode', rows[0].code);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Provincias",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/geo/provinces?departmentCode={{departmentCode}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["geo", "provinces"],
+              "query": [
+                { "key": "departmentCode", "value": "{{departmentCode}}", "description": "Sale de Departamentos. Sin código la lista vuelve vacía." }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const rows = pm.response.json();",
+                  "if (rows[0]) pm.collectionVariables.set('provinceCode', rows[0].code);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Distritos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/geo/districts?provinceCode={{provinceCode}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["geo", "districts"],
+              "query": [
+                { "key": "provinceCode", "value": "{{provinceCode}}", "description": "Sale de Provincias. Sin código la lista vuelve vacía." }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const rows = pm.response.json();",
+                  "if (rows[0]) pm.collectionVariables.set('districtCode', rows[0].code);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Candidatos",
+      "item": [
+        {
+          "name": "Buscar por nombre",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/candidates?q={{q}}&orden=nombre",
+              "host": ["{{baseUrl}}"],
+              "path": ["candidates"],
+              "query": [
+                { "key": "q", "value": "{{q}}", "description": "Nombre o apellido. Sin texto y sin distrito la búsqueda vuelve vacía." },
+                { "key": "orden", "value": "nombre", "description": "nombre u organizacion" },
+                { "key": "departamento", "value": "{{departmentCode}}", "disabled": true },
+                { "key": "provincia", "value": "{{provinceCode}}", "disabled": true },
+                { "key": "distrito", "value": "{{districtCode}}", "disabled": true },
+                { "key": "organizacion", "value": "", "disabled": true },
+                { "key": "sexo", "value": "", "disabled": true },
+                { "key": "experienciaElectoral", "value": "true", "disabled": true },
+                { "key": "sinSentencias", "value": "true", "disabled": true },
+                { "key": "primaria", "value": "true", "disabled": true },
+                { "key": "secundaria", "value": "true", "disabled": true },
+                { "key": "superiores", "value": "true", "disabled": true },
+                { "key": "trabajo", "value": "true", "disabled": true }
+              ]
+            },
+            "description": "Los filtros apagados se pueden activar. Un filtro en true se manda como `true` o `1`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const first = body.resultados && body.resultados[0];",
+                  "if (first && first.id) pm.collectionVariables.set('hojaVidaId', first.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Listar por distrito",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/candidates?distrito={{districtCode}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["candidates"],
+              "query": [
+                { "key": "distrito", "value": "{{districtCode}}", "description": "Sale de Distritos. Sin este código y sin nombre, la lista vuelve vacía." }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const first = body.resultados && body.resultados[0];",
+                  "if (first && first.id) pm.collectionVariables.set('hojaVidaId', first.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ver ficha",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/candidates/{{hojaVidaId}}",
+            "description": "Hoja de vida y plan. `hojaVidaId` lo deja la búsqueda anterior."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('trae el nombre', () => pm.expect(pm.response.json()).to.have.property('nombre'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Verificar afirmación",
+      "item": [
+        {
+          "name": "Comprobar texto",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "text/event-stream" },
+              { "key": "X-Session-Key", "value": "{{sessionKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Fue alcalde antes de estas elecciones.\",\n  \"sessionId\": \"{{sessionId}}\",\n  \"hojaVidaId\": \"{{hojaVidaId}}\"\n}\n",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/fact-check/stream",
+            "description": "La respuesta llega en eventos (`node`, `decision`, `token`, `result`) y se cierra al terminar. Hace falta un `hojaVidaId` real. Sin clave de OpenAI el veredicto queda `no_verificable`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('acepta la consulta', () => pm.expect(pm.response.code).to.eql(200));",
+                  "pm.test('es un stream', () => pm.expect(pm.response.text()).to.include('event:'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Comprobar texto (ruta en español)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Accept", "value": "text/event-stream" },
+              { "key": "X-Session-Key", "value": "{{sessionKey}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"query\": \"Fue alcalde antes de estas elecciones.\",\n  \"sessionId\": \"{{sessionId}}\",\n  \"hojaVidaId\": \"{{hojaVidaId}}\"\n}\n",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/verificar-afirmacion/stream",
+            "description": "La misma puerta que `/fact-check/stream`."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Historial",
+      "item": [
+        {
+          "name": "Leer historial",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Session-Key", "value": "{{sessionKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/history?sessionId={{sessionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["history"],
+              "query": [
+                { "key": "sessionId", "value": "{{sessionId}}" }
+              ]
+            },
+            "description": "Solo devuelve los turnos de esta llave. Si la llave no coincide, responde 401."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('responde 200', () => pm.response.to.have.status(200));",
+                  "pm.test('es una lista', () => pm.expect(pm.response.json()).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Leer historial (ruta en español)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "X-Session-Key", "value": "{{sessionKey}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/consultar-historial?sessionId={{sessionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["consultar-historial"],
+              "query": [
+                { "key": "sessionId", "value": "{{sessionId}}" }
+              ]
+            },
+            "description": "La misma lectura que `/history`."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Gestor",
+      "description": "Primero entra. Las demás piden la cookie de esa sesión. Crear cuenta y aplicar retención escriben en la base.",
+      "item": [
+        {
+          "name": "Entrar",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{gestorEmail}}\",\n  \"password\": \"{{gestorPassword}}\"\n}\n",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/gestor/sesion",
+            "description": "Pon `gestorEmail` y `gestorPassword` con los valores de `GESTOR_EMAIL` y `GESTOR_PASSWORD`. La contraseña tiene al menos 8 caracteres. La respuesta deja la cookie `tumi_gestor`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('entra', () => pm.expect([200, 201]).to.include(pm.response.code));",
+                  "pm.test('trae el correo', () => pm.expect(pm.response.json()).to.have.property('email'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ver sesión",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/gestor/sesion",
+            "description": "Quién está dentro. Sin cookie responde 401."
+          }
+        },
+        {
+          "name": "Salir",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/gestor/sesion"
+          }
+        },
+        {
+          "name": "Crear otra cuenta",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"otra.persona@example.com\",\n  \"name\": \"Otra persona\",\n  \"password\": \"cambia-esta-clave\"\n}\n",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{baseUrl}}/gestor/cuentas",
+            "description": "Hay que haber entrado antes. Crea una cuenta de verdad. Cambia el correo antes de enviarla."
+          }
+        },
+        {
+          "name": "Listar documentos",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/gestor/documentos?hojaVidaId={{hojaVidaId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["gestor", "documentos"],
+              "query": [
+                { "key": "hojaVidaId", "value": "{{hojaVidaId}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Subir PDF",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/pdf" },
+              { "key": "X-Hoja-Vida-Id", "value": "{{hojaVidaId}}" },
+              { "key": "X-Filename", "value": "documento.pdf" }
+            ],
+            "body": {
+              "mode": "file",
+              "file": { "src": "" }
+            },
+            "url": "{{baseUrl}}/gestor/documentos",
+            "description": "Elige un PDF en el cuerpo (tipo file). El candidato tiene que existir. El tope por defecto es 15 MB. La respuesta guarda `documentId`."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  const body = pm.response.json();",
+                  "  if (body.id) pm.collectionVariables.set('documentId', body.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Ver estado del documento",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/gestor/documentos/{{documentId}}",
+            "description": "`documentId` lo deja Subir PDF. El estado pasa de `pending` a `ready` cuando el worker termina."
+          }
+        },
+        {
+          "name": "Borrar documento",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{baseUrl}}/gestor/documentos/{{documentId}}",
+            "description": "Marca el PDF como retirado y pide quitar sus trozos de Qdrant."
+          }
+        },
+        {
+          "name": "Aplicar retención (borra datos viejos)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/gestor/retencion",
+            "description": "Borra visitas y documentos que ya pasaron su plazo. No lo corras si no quieres perder esos datos."
+          }
+        }
+      ]
+    }
+  ]
+}

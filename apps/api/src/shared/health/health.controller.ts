@@ -1,5 +1,6 @@
 import { Controller, Get } from "@nestjs/common";
 import { getPrisma } from "@tumi/database";
+import { ApiHealth } from "../openapi";
 import { RedisService } from "../redis/redis.service";
 import { VectorSearchService } from "../../commands/verify-claim/evidence/vector-search.service";
 import { VerifyClaimHandler } from "../../commands/verify-claim/verify-claim.handler";
@@ -13,6 +14,7 @@ export class HealthController {
   ) {}
 
   @Get()
+  @ApiHealth()
   async check() {
     const [postgres, redis, qdrant] = await Promise.all([
       pingPostgres(),

@@ -26,7 +26,7 @@ pnpm install
 pnpm dev
 ```
 
-La web queda en `http://localhost:4200` y proxyea `/api` hacia el puerto 3000.
+La web queda en `http://localhost:4200` y proxyea `/api` hacia el puerto 3000. La referencia de la API queda en `http://localhost:3000/api/docs`.
 
 Para cargar los PDF resumen de los planes en Qdrant:
 
@@ -44,7 +44,7 @@ docker network create dokploy-network
 docker compose up --build
 ```
 
-Abre `http://localhost:8080`. El API no se publica: nginx en `web` proxea `/api` y deja pasar el streaming.
+Abre `http://localhost:8080`. El API no se publica: nginx en `web` proxea `/api` y deja pasar el streaming. La referencia queda en `http://localhost:8080/api/docs`.
 
 ## Dokploy
 

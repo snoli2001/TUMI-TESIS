@@ -1,10 +1,12 @@
 import { Body, Controller, Headers, Post, Res } from "@nestjs/common";
+import { ApiExcludeController } from "@nestjs/swagger";
 import type { Response } from "express";
 import { verificarVideoRequestSchema } from "@tumi/contracts";
 import { sendHttpError } from "../../shared/http-error";
 import { openSession } from "../../shared/session/session-access";
 import { VerifyVideoHandler } from "./verify-video.handler";
 
+@ApiExcludeController()
 @Controller("verificar-video")
 export class VerifyVideoController {
   constructor(private readonly video: VerifyVideoHandler) {}

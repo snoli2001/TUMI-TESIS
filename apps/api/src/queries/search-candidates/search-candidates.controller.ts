@@ -1,5 +1,6 @@
 import { Controller, Get, Query } from "@nestjs/common";
 import type { CandidateSearchFilters, CandidateSearchResult } from "@tumi/contracts";
+import { ApiCandidateSearch } from "../../shared/openapi";
 import { SearchCandidatesHandler } from "./search-candidates.handler";
 
 @Controller("candidates")
@@ -7,6 +8,7 @@ export class SearchCandidatesController {
   constructor(private readonly buscar: SearchCandidatesHandler) {}
 
   @Get()
+  @ApiCandidateSearch()
   list(
     @Query("q") q?: string,
     @Query("departamento") departamento?: string,
