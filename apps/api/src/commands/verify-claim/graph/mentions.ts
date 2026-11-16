@@ -136,13 +136,17 @@ export function coverOutlets<T extends { id: string; url: string | null }>(
   outletOf: (url: string | null) => string | null,
   cap = 8,
 ): T[] {
+  const prefix: T[] = [];
   const covered = new Set<string>();
+  const seen = new Set<string>();
   for (const item of ranked) {
+    if (prefix.length >= cap) break;
+    prefix.push(item);
+    seen.add(item.id);
     const outlet = outletOf(item.url);
     if (outlet) covered.add(outlet);
   }
   const extra: T[] = [];
-  const seen = new Set(ranked.map((item) => item.id));
   for (const item of proof) {
     const outlet = outletOf(item.url);
     if (!outlet || covered.has(outlet) || seen.has(item.id)) continue;
@@ -151,7 +155,7 @@ export function coverOutlets<T extends { id: string; url: string | null }>(
     extra.push(item);
   }
   const room = Math.max(0, cap - extra.length);
-  return [...ranked.slice(0, room), ...extra];
+  return [...prefix.slice(0, room), ...extra];
 }
 
 export function evidenceFits(

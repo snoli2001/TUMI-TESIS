@@ -123,6 +123,35 @@ export function isFactCheckUrl(url: string | null): boolean {
   }
 }
 
+export function preferReporting<T extends { url: string | null }>(items: T[]): T[] {
+  const hasNews = new Set<string>();
+  for (const item of items) {
+    const key = pageKey(item.url);
+    if (key && !isSecondaryPage(item.url)) hasNews.add(key);
+  }
+  return items.filter((item) => {
+    const key = pageKey(item.url);
+    if (!key || !hasNews.has(key)) return true;
+    return !isSecondaryPage(item.url);
+  });
+}
+
+function pageKey(url: string | null): string | null {
+  return trustedOutlet(url) ?? hostOf(url);
+}
+
+function isSecondaryPage(url: string | null): boolean {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./, "").toLowerCase();
+    const path = parsed.pathname.toLowerCase();
+    return host.startsWith("lrmas.") || path.startsWith("/opinion") || path.startsWith("/tag") || path.startsWith("/autor");
+  } catch {
+    return false;
+  }
+}
+
 export function roleForUrl(url: string | null): "prueba" | "contraste" {
   const host = hostOf(url);
   if (!host) return "contraste";

@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isFactCheckUrl, isIpeUrl, isSocialUrl, roleForUrl, socialNetwork, trustedOutlet } from "./outlets";
+import { isFactCheckUrl, isIpeUrl, isSocialUrl, preferReporting, roleForUrl, socialNetwork, trustedOutlet } from "./outlets";
+
+test("una crónica deja fuera la columna cuando ambas son del mismo medio", () => {
+  const news = { url: "https://larepublica.pe/politica/2026/11/06/rafael-lopez-aliaga-no-sera-alcalde-de-lima" };
+  const opinion = { url: "https://larepublica.pe/opinion/2026/11/11/lopez-aliaga-la-reeleccion-descubierta" };
+  const kept = preferReporting([opinion, news]);
+  assert.deepEqual(kept, [news]);
+});
 
 test("un periódico peruano cuenta como prueba", () => {
   assert.equal(roleForUrl("https://elcomercio.pe/politica/elecciones"), "prueba");

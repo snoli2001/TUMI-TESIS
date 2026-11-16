@@ -3,7 +3,7 @@ import { tavily, type TavilySearchOptions } from "@tavily/core";
 import type { EvidenceItem } from "../graph/state";
 import { claimFocus, mentionsClaim, sameCandidate } from "../profile/rules";
 import { socialPostCounts } from "./attribution";
-import { isFactCheckUrl, isIpeUrl, isSocialUrl, NEWS_DOMAINS, roleForUrl, SOCIAL_DOMAINS, socialNetwork, trustedOutlet } from "./outlets";
+import { isFactCheckUrl, isIpeUrl, isSocialUrl, NEWS_DOMAINS, preferReporting, roleForUrl, SOCIAL_DOMAINS, socialNetwork, trustedOutlet } from "./outlets";
 
 @Injectable()
 export class WebSearchService {
@@ -24,7 +24,7 @@ export class WebSearchService {
     const [lists, checks, trusted] = await Promise.all([
       Promise.all(queries.map((text) => this.one(text))),
       this.factChecks(aboutClaim),
-      this.trustedPress(aboutClaim),
+      this.trustedPress(queries),
     ]);
     const notes = unique([...checks, ...trusted, ...lists.flat()]);
     if (!identity?.name.trim()) return notes;
@@ -81,7 +81,8 @@ export class WebSearchService {
     return [...republica.filter((item) => isFactCheckUrl(item.url)), ...peruCheck];
   }
 
-  private async trustedPress(text: string): Promise<EvidenceItem[]> {
+  private async trustedPress(texts: string[]): Promise<EvidenceItem[]> {
+    const queries = [...new Set(texts.map((text) => text.trim()).filter((text) => text.length >= 3))].slice(0, 2);
     const domains = [
       "rpp.pe",
       "elcomercio.pe",
@@ -93,17 +94,19 @@ export class WebSearchService {
       "ipe.org.pe",
     ];
     const lists = await Promise.all(
-      domains.map((domain) =>
-        this.ask(text, {
-          topic: "general",
-          searchDepth: "advanced",
-          maxResults: 2,
-          includeDomains: [domain],
-          includeDomainsMode: "restrict",
-        }),
+      queries.flatMap((text) =>
+        domains.map((domain) =>
+          this.ask(text, {
+            topic: "general",
+            searchDepth: "advanced",
+            maxResults: 4,
+            includeDomains: [domain],
+            includeDomainsMode: "restrict",
+          }),
+        ),
       ),
     );
-    return lists.flat();
+    return preferReporting(lists.flat());
   }
 
   private async one(text: string): Promise<EvidenceItem[]> {

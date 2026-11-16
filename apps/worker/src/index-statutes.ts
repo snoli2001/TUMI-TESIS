@@ -13,6 +13,7 @@ async function main(): Promise<void> {
   let failed = 0;
   for (const statute of STATUTE_DOCUMENTS) {
     try {
+      console.log(JSON.stringify({ id: statute.id, status: "reading" }));
       const chunks = await chunksOf(statute);
       const vectors: number[][] = [];
       for (let offset = 0; offset < chunks.length; offset += 16) {

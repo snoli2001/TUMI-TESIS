@@ -28,5 +28,8 @@
     "src/commands/verify-claim/evidence/qdrant-metadata.test.ts",
     "src/commands/verify-claim/evidence/statutes.ts",
     "src/commands/verify-claim/evidence/statutes.test.ts",
+    "src/commands/verify-claim/evaluation/cases.ts",
+    "src/commands/verify-claim/evaluation/cases.test.ts",
+    "src/commands/verify-claim/evaluation/run-cases.ts",
   ]
 }

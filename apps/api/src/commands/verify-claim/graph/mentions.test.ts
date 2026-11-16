@@ -74,6 +74,22 @@ test("conserva un medio que el reorden dejó fuera", () => {
   assert.deepEqual(kept.map((item) => item.id), ["hoja", "rpp", "ipe"]);
 });
 
+test("conserva La República cuando queda después del tope", () => {
+  const hoja = { id: "hoja", url: null };
+  const rpp = { id: "rpp", url: "https://rpp.pe/nota" };
+  const comercio = { id: "comercio", url: "https://elcomercio.pe/nota" };
+  const republica = { id: "republica", url: "https://larepublica.pe/politica/rafael-lopez-aliaga-no-sera-alcalde" };
+  const outletOf = (url: string | null) => {
+    if (url?.includes("rpp.pe")) return "RPP";
+    if (url?.includes("elcomercio.pe")) return "El Comercio";
+    if (url?.includes("larepublica.pe")) return "La República";
+    return null;
+  };
+  const ranked = [hoja, rpp, comercio, republica];
+  const kept = coverOutlets(ranked, ranked, outletOf, 3);
+  assert.deepEqual(kept.map((item) => item.id), ["hoja", "rpp", "republica"]);
+});
+
 test("arma nombres propios a partir del texto del buscador", () => {
   const text = "Porky es el apelativo de Cirilo García, candidato en San Ignacio.";
   assert.ok(namesInText(text, ["Porky"]).includes("Cirilo García"));
