@@ -16,6 +16,8 @@ import { loadProfile } from "./profile/load-profile";
 import {
   asksOtherOffice,
   decide,
+  contextQueries,
+  isValueJudgment,
   officeQueries,
   officialReading,
   questionKind,
@@ -365,7 +367,8 @@ export class VerifyClaimHandler implements OnModuleInit {
         const fact = profile ? webQuery(profile.shortName, text, profile.name) : text;
         const planned = queries.length > 0 ? queries : searchQueries(kind, name, fact);
         const aboutOffice = profile ? officeQueries(name, question || query, profile.office) : [];
-        const searches = [...aboutOffice, fact, ...planned].filter((item, index, all) => all.indexOf(item) === index);
+        const aboutRecord = contextQueries(name, question || query);
+        const searches = [...aboutOffice, ...aboutRecord, fact, ...planned].filter((item, index, all) => all.indexOf(item) === index);
         const identity = {
           name: profile?.name || entities[0]?.nombre || "",
           party: profile?.party || entities[0]?.partido || "",
@@ -394,6 +397,16 @@ export class VerifyClaimHandler implements OnModuleInit {
       },
       classifyCirculation: (claims, evidence) => this.decisions.classifyCirculation(claims, evidence),
       judgeClaim: (claim, evidence, entities) => {
+        if (isValueJudgment(question || claim)) {
+          return Promise.resolve({
+            verdict: "no_verificable" as const,
+            confidence: 0.8,
+            degraded: false,
+            decisions: [],
+            explanation:
+              "La frase es un juicio de valor o una metáfora. No trae un indicador, un umbral ni un período que permitan comprobarla.",
+          });
+        }
         if (profile) {
           const official = officialReading(question || claim, profile);
           if (official) {

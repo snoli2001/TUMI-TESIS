@@ -29,10 +29,13 @@ const base = process.env.TUMI_API_BASE ?? "http://localhost:8080/api";
 
 async function main(): Promise<void> {
   const reports: CaseReport[] = [];
-  for (const item of VERIFICATION_CASES) {
+  const only = process.argv.slice(2);
+  const selected = only.length > 0 ? VERIFICATION_CASES.filter((item) => only.includes(item.id)) : VERIFICATION_CASES;
+  for (const item of selected) {
     reports.push(await runCase(item));
     const last = reports[reports.length - 1];
-    console.log(`${last.id} ${last.status} ${last.actual ?? last.error ?? ""}`);
+    const detail = (last.explanation ?? last.error ?? "").replace(/\s+/g, " ").slice(0, 220);
+    console.log(`${last.id} ${last.status} ${last.actual ?? ""} ${detail}`);
   }
   const scored = reports.filter((item) => item.status === "coincide" || item.status === "difiere");
   const hits = scored.filter((item) => item.status === "coincide").length;
@@ -66,12 +69,15 @@ async function runCase(item: VerificationCase): Promise<CaseReport> {
     const chosen = result.verdicts.filter((verdict) => verdict.check === "truth");
     const rows = chosen.length > 0 ? chosen : result.verdicts;
     const actual = rows[0]?.verdict ?? null;
-    const sources = rows.flatMap((verdict) => verdict.sources.map((source) => source.url).filter((url): url is string => Boolean(url)));
+    const sources = [...rows.flatMap((verdict) => verdict.sources), ...result.sources]
+      .map((source) => source.url)
+      .filter((url): url is string => Boolean(url));
+    const explanation = [rows[0]?.explanation, result.conclusion].find((text) => text && text.trim()) ?? "";
     return {
       ...baseReport,
       status: actual && acceptsVerdict(item, actual) ? "coincide" : "difiere",
       actual,
-      explanation: rows[0]?.explanation ?? result.conclusion,
+      explanation,
       citedReference: item.referenceUrl ? sources.some((url) => samePage(url, item.referenceUrl as string)) : null,
       sources: [...new Set(sources)],
       error: null,
@@ -89,7 +95,10 @@ async function runCase(item: VerificationCase): Promise<CaseReport> {
   }
 }
 
-async function verify(query: string, hojaVidaId: string): Promise<{ conclusion: string; verdicts: VerdictRow[] }> {
+async function verify(
+  query: string,
+  hojaVidaId: string,
+): Promise<{ conclusion: string; verdicts: VerdictRow[]; sources: VerdictRow["sources"] }> {
   const response = await fetch(`${base}/fact-check/stream`, {
     method: "POST",
     headers: {
@@ -110,9 +119,14 @@ async function verify(query: string, hojaVidaId: string): Promise<{ conclusion: 
     })
     .find((item) => item?.event === "result" || item?.event === "error");
   if (!result) throw new Error("La verificación no devolvió resultado");
-  const payload = JSON.parse(result.data) as { message?: string; conclusion?: string; verdicts?: VerdictRow[] };
+  const payload = JSON.parse(result.data) as {
+    message?: string;
+    conclusion?: string;
+    verdicts?: VerdictRow[];
+    sources?: VerdictRow["sources"];
+  };
   if (result.event === "error") throw new Error(payload.message ?? "No se pudo verificar");
-  return { conclusion: payload.conclusion ?? "", verdicts: payload.verdicts ?? [] };
+  return { conclusion: payload.conclusion ?? "", verdicts: payload.verdicts ?? [], sources: payload.sources ?? [] };
 }
 
 function samePage(left: string, right: string): boolean {

@@ -71,6 +71,9 @@ export function statutesFor(query: string): StatuteRule[] {
   if (matched.has("criminal-procedure") && !/\bdelito\b|estafa|\brobo\b|homicidio|violacion|peculado|lavado|cohecho|corrupcion/.test(folded)) {
     matched.delete("criminal-code");
   }
+  if (matched.has("executive-law") && /\b(fue|ocup|renunci)\w*\b/.test(folded) && /\bministro\b|ministerio/.test(folded)) {
+    matched.delete("executive-law");
+  }
   const ordered = [...matched.values()].sort((left, right) => {
     if (left.priority === right.priority) return 0;
     return left.priority === "high" ? -1 : 1;

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { searchQueries, webQuery, claimFocus, mentionsClaim, decide, asksOtherOffice, officeQueries, sameCandidate, type OfficialProfile } from "./rules";
+import { searchQueries, webQuery, claimFocus, mentionsClaim, decide, asksOtherOffice, officeQueries, contextQueries, isValueJudgment, sameCandidate, type OfficialProfile } from "./rules";
 
 const profile: OfficialProfile = {
   id: "hv-1",
@@ -148,6 +148,29 @@ describe("profile rules", () => {
       record: [{ kind: "elected", text: "Cargo electo, CONGRESISTA DE LA REPÚBLICA, PODEMOS PERU, 2020, 2021" }],
     });
     assert.equal(rule, null);
+  });
+
+  it("no cierra un ministerio con la hoja y deja el juicio de valor sin veredicto de ficha", () => {
+    const allison = {
+      ...profile,
+      name: "Francis James Allison Oyague",
+      shortName: "Francis Allison",
+      office: "ALCALDE PROVINCIAL",
+      party: "Avanza País",
+      record: [{ kind: "elected" as const, text: "Cargo electo, ALCALDE DISTRITAL, MAGDALENA, 2015, 2018" }],
+    };
+    assert.equal(decide("Francis Allison fue ministro de Vivienda durante el gobierno de Alan García en 2009.", allison), null);
+    assert.equal(decide("Francis Allison es el mejor alcalde que ha tenido Magdalena.", allison), null);
+    assert.equal(decide("López Aliaga convirtió Lima en una potencia mundial.", profile), null);
+    assert.equal(isValueJudgment("Francis Allison es el mejor alcalde que ha tenido Magdalena."), true);
+    assert.deepEqual(contextQueries("Francis Allison", "fue ministro de Vivienda en 2009"), ["Francis Allison ministro"]);
+    assert.deepEqual(contextQueries("Francis Allison", "renunció al Ministerio de Vivienda"), [
+      "Francis Allison ministro",
+      "Francis Allison renuncia",
+    ]);
+    assert.deepEqual(contextQueries("Carlos Bruce", "el proyecto era de matrimonio igualitario"), [
+      "Carlos Bruce unión civil no matrimonial",
+    ]);
   });
 
   it("cita el cargo previo que sí está en la hoja de vida", () => {

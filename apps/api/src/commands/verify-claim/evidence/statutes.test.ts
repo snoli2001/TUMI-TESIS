@@ -15,6 +15,12 @@ test("una denuncia abre el código procesal penal", () => {
   );
 });
 
+test("haber sido ministro no abre la ley del poder ejecutivo", () => {
+  const ids = statutesFor("Fue ministro de Vivienda durante el gobierno de Alan García").map((statute) => statute.id);
+  assert.equal(ids.includes("executive-law"), false);
+  assert.ok(statutesFor("atribuciones del Consejo de Ministros").some((statute) => statute.id === "executive-law"));
+});
+
 test("una cifra de desempleo no abre ninguna norma", () => {
   assert.deepEqual(statutesFor("el desempleo ronda el 7 por ciento"), []);
 });

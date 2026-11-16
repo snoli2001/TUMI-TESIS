@@ -107,6 +107,22 @@ export function asksOtherOffice(query: string, office: string): boolean {
   return claimed !== null && !fold(office).includes(claimed);
 }
 
+export function isValueJudgment(query: string): boolean {
+  return /\bmejor\b|\bpeor\b|potencia mundial/.test(fold(query));
+}
+
+export function contextQueries(name: string, query: string): string[] {
+  const folded = fold(query);
+  const who = name.trim();
+  const queries: string[] = [];
+  if (/\bministro\b|ministerio|renunci/.test(folded)) queries.push(`${who} ministro`);
+  if (/renunci/.test(folded)) queries.push(`${who} renuncia`);
+  if (/union civil|matrimonio igualitario|proyecto de ley/.test(folded)) queries.push(`${who} unión civil no matrimonial`);
+  if (/\bgay\b|homosexual/.test(folded)) queries.push(`${who} declaró que es gay`);
+  if (/apoyo policial|trastienda|restaurante/.test(folded)) queries.push(`${who} apoyo policial restaurante`);
+  return queries.slice(0, 2);
+}
+
 export function officeQueries(name: string, query: string, office: string): string[] {
   if (!asksOtherOffice(query, office)) return [];
   const claimed = claimedOffice(query) ?? "";
@@ -214,6 +230,8 @@ export function decide(query: string, profile: OfficialProfile): ProfileRule | n
     };
   }
 
+  if (isValueJudgment(query)) return null;
+
   if (/promet|promesa|ofrec|plan de gobierno|se compromet/.test(folded)) {
     const hit = profile.proposals.find((item) => matches(query, item.text, profile.name));
     if (!hit) return null;
@@ -230,7 +248,8 @@ export function decide(query: string, profile: OfficialProfile): ProfileRule | n
     };
   }
 
-  const prior = PRIOR_OFFICES.find((word) => folded.includes(word));
+  const prior = PRIOR_OFFICES.find((word) => new RegExp(`(?:\\b|ex)${word}\\b`).test(folded));
+  if (prior === "ministro") return null;
   if (prior) return priorOffice(profile, prior);
 
   if (/universidad|bachiller|egresad|abogado|ingeniero|medico/.test(folded)) {
