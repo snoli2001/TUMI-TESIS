@@ -257,10 +257,20 @@ export interface CandidateSearchFilters {
   trabajo?: boolean;
 }
 
+export interface HistoryCandidate {
+  id: string;
+  nombre: string;
+  cargo: string;
+  partido: string;
+  fotoUrl: string | null;
+}
+
 export interface HistoryItem {
   id: string;
   query: string;
   conclusion: string;
+  verdict: string | null;
+  candidate: HistoryCandidate | null;
   degraded: boolean;
   createdAt: string;
   inicioSeg: number | null;

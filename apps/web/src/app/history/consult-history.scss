@@ -1,0 +1,89 @@
+.history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.9rem;
+}
+
+.history-card h2 {
+  margin: 0.85rem 0 0.7rem;
+  font-size: 1.2rem;
+}
+
+.history-top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.8rem;
+  align-items: center;
+}
+
+.history-top time {
+  color: var(--color-muted-foreground);
+  font-size: 0.92rem;
+}
+
+.person {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: 0.85rem;
+  padding: 0.7rem 0.75rem;
+  border-radius: 1rem;
+  background: #f8fafc;
+  color: inherit;
+  text-decoration: none;
+}
+
+a.person:hover strong {
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.person img,
+.person .mark {
+  width: 3.1rem;
+  height: 3.1rem;
+  border-radius: 0.8rem;
+  object-fit: cover;
+  object-position: center top;
+  background: #dbeafe;
+  flex: none;
+}
+
+.person .mark {
+  display: grid;
+  place-items: center;
+  font-family: Outfit, sans-serif;
+  font-weight: 650;
+  color: var(--color-primary);
+}
+
+.person span {
+  display: grid;
+  min-width: 0;
+}
+
+.person strong {
+  color: #0f172a;
+}
+
+.person.missing {
+  margin-bottom: 0;
+  color: var(--color-muted-foreground);
+}
+
+.clip {
+  margin: 0 0 0.7rem;
+}
+
+.empty h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.35rem;
+}
+
+.empty .go {
+  display: inline-block;
+  margin-top: 0.85rem;
+  font-weight: 650;
+}

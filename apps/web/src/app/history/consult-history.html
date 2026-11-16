@@ -1,29 +1,58 @@
 <header class="page-intro">
   <p class="eyebrow">Sesión</p>
   <h1>Historial de esta sesión</h1>
-  <p class="lede">Las consultas que hiciste en este navegador, con su veredicto.</p>
+  <p class="lede">Cada consulta queda con el candidato, el veredicto y la explicación.</p>
 </header>
 @if (error()) {
-  <p>{{ error() }}</p>
+  <p class="error" role="alert">{{ error() }}</p>
 }
-@if (!rows().length && !error()) {
-  <p class="muted">Todavía no hay consultas guardadas en este navegador.</p>
+@if (loading()) {
+  <p class="muted">Leyendo el historial…</p>
 }
-@for (row of rows(); track row.id) {
-  <article class="panel">
-    @if (row.degraded) {
-      <span class="badge">Demostración</span>
-    }
-    <h2>{{ row.query }}</h2>
-    @if (row.inicioSeg !== null) {
-      <p class="muted">
-        Video desde el segundo {{ row.inicioSeg }}
-        @if (row.finSeg !== null) {
-          hasta el {{ row.finSeg }}
-        }
-      </p>
-    }
-    <div class="prose" [innerHTML]="asHtml(row.conclusion)"></div>
-    <p class="muted">{{ row.createdAt }}</p>
+@if (!loading() && !rows().length && !error()) {
+  <article class="panel empty">
+    <h2>Todavía no hay consultas</h2>
+    <p class="muted">Cuando verifiques una afirmación, aparecerá aquí con el candidato consultado.</p>
+    <a class="go" routerLink="/">Verificar una afirmación</a>
   </article>
 }
+<ol class="history">
+  @for (row of rows(); track row.id) {
+    <li>
+      <article class="panel history-card">
+        <header class="history-top">
+          <p class="verdict" [attr.data-verdict]="row.verdict">{{ verdictLabel(row.verdict) }}</p>
+          <time [attr.datetime]="row.createdAt">{{ when(row.createdAt) }}</time>
+          @if (row.degraded) {
+            <span class="badge">Demostración</span>
+          }
+        </header>
+        @if (row.candidate; as persona) {
+          <a class="person" [routerLink]="['/candidatos', persona.id]">
+            @if (persona.fotoUrl) {
+              <img [src]="persona.fotoUrl" [alt]="persona.nombre" />
+            } @else {
+              <span class="mark" aria-hidden="true">{{ persona.nombre.slice(0, 1) }}</span>
+            }
+            <span>
+              <strong>{{ persona.nombre }}</strong>
+              <span class="muted">{{ officeLine(row) }}</span>
+            </span>
+          </a>
+        } @else {
+          <p class="person missing">Sin candidato identificado</p>
+        }
+        <h2>{{ row.query }}</h2>
+        @if (row.inicioSeg !== null) {
+          <p class="muted clip">
+            Video desde el segundo {{ row.inicioSeg }}
+            @if (row.finSeg !== null) {
+              hasta el {{ row.finSeg }}
+            }
+          </p>
+        }
+        <div class="prose" [innerHTML]="asHtml(row.conclusion)"></div>
+      </article>
+    </li>
+  }
+</ol>
