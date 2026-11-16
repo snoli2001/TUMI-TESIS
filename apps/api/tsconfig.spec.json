@@ -13,6 +13,8 @@
     "src/commands/verify-claim/drafting/image-claim.test.ts",
     "src/commands/verify-claim/evidence/outlets.ts",
     "src/commands/verify-claim/evidence/outlets.test.ts",
+    "src/commands/verify-claim/evidence/press-fallback.ts",
+    "src/commands/verify-claim/evidence/press-fallback.test.ts",
     "src/commands/verify-claim/evidence/attribution.ts",
     "src/commands/verify-claim/evidence/attribution.test.ts",
     "src/shared/text.ts",

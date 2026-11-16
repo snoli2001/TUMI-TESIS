@@ -1,7 +1,7 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { EntityRef } from "@tumi/contracts";
 import { trustedOutlet } from "../evidence/outlets";
-import { mentionsClaim, questionKind, sameCandidate } from "../profile/rules";
+import { claimsToJudge, mentionsClaim, questionKind, sameCandidate } from "../profile/rules";
 import type { AgentDeps, StreamHooks, TumiState } from "./state";
 import { coverOutlets, evidenceFits, leadingNames } from "./mentions";
 
@@ -109,7 +109,7 @@ export async function verify(
   stream.onNode("verificacion", "start");
   const verdicts = [];
   let degraded = false;
-  for (const claim of state.claims) {
+  for (const claim of claimsToJudge(state.query, state.claims)) {
     const prueba = state.evidence.filter((item) => item.role !== "contraste");
     const judged = await deps.judgeClaim(claim, prueba, state.entities);
     degraded = degraded || judged.degraded;

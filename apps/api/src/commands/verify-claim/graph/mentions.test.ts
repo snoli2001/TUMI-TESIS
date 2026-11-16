@@ -56,6 +56,18 @@ test("una nota con el nombre y un expediente sí sirve en una pregunta penal", (
   assert.equal(evidenceFits(["Tiene procesos penales"], nota, ["Abel", "Lopez"]), true);
 });
 
+test("un titular con la palabra corta del hecho sigue como prueba", () => {
+  const nota = {
+    origin: "tavily",
+    title: "Gay y orgulloso de serlo, admite Carlos Bruce",
+    snippet: "El congresista habló en una entrevista.",
+  };
+  assert.equal(
+    evidenceFits(["Carlos Bruce declaró públicamente en mayo de 2014 que es gay."], nota, ["Carlos", "Bruce"]),
+    true,
+  );
+});
+
 test("una nota que no menciona el hecho no sirve de prueba", () => {
   const nota = {
     origin: "tavily",

@@ -111,15 +111,35 @@ export function isValueJudgment(query: string): boolean {
   return /\bmejor\b|\bpeor\b|potencia mundial/.test(fold(query));
 }
 
+export function isSingleSentence(query: string): boolean {
+  const text = query.trim();
+  if (!text) return false;
+  const breaks = text.match(/[.!?](?=\s+\p{Lu}|\s*$)/gu) ?? [];
+  return breaks.length <= 1;
+}
+
+export function claimsToJudge(query: string, extracted: string[]): string[] {
+  const sentence = query.trim();
+  if (sentence && isSingleSentence(sentence)) return [sentence];
+  const parts = extracted.map((item) => item.trim()).filter((item) => item.length > 0);
+  return parts.length > 0 ? parts : [sentence];
+}
+
 export function contextQueries(name: string, query: string): string[] {
   const folded = fold(query);
   const who = name.trim();
   const queries: string[] = [];
+  const deniesMinistry = /nunca/.test(folded) && /\bministro\b|ministerio/.test(folded);
+  if (deniesMinistry) queries.push(`${who} fue ministro`);
   if (/\bministro\b|ministerio|renunci/.test(folded)) queries.push(`${who} ministro`);
   if (/renunci/.test(folded)) queries.push(`${who} renuncia`);
   if (/union civil|matrimonio igualitario|proyecto de ley/.test(folded)) queries.push(`${who} unión civil no matrimonial`);
   if (/\bgay\b|homosexual/.test(folded)) queries.push(`${who} declaró que es gay`);
   if (/apoyo policial|trastienda|restaurante/.test(folded)) queries.push(`${who} apoyo policial restaurante`);
+  if (deniesMinistry) {
+    const lead = `${who} fue ministro`;
+    return [lead, ...queries.filter((item) => item !== lead)].slice(0, 2);
+  }
   return queries.slice(0, 2);
 }
 

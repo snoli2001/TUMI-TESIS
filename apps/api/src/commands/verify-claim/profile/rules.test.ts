@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { searchQueries, webQuery, claimFocus, mentionsClaim, decide, asksOtherOffice, officeQueries, contextQueries, isValueJudgment, sameCandidate, type OfficialProfile } from "./rules";
+import { searchQueries, webQuery, claimFocus, mentionsClaim, decide, asksOtherOffice, officeQueries, contextQueries, claimsToJudge, isValueJudgment, sameCandidate, type OfficialProfile } from "./rules";
 
 const profile: OfficialProfile = {
   id: "hv-1",
@@ -170,6 +170,28 @@ describe("profile rules", () => {
     ]);
     assert.deepEqual(contextQueries("Carlos Bruce", "el proyecto era de matrimonio igualitario"), [
       "Carlos Bruce unión civil no matrimonial",
+    ]);
+    assert.deepEqual(contextQueries("Francis Allison", "Francis Allison nunca ocupó un ministerio."), [
+      "Francis Allison fue ministro",
+      "Francis Allison ministro",
+    ]);
+    assert.deepEqual(
+      claimsToJudge("Daniel Urresti fue ministro del Interior durante el gobierno de Alejandro Toledo.", [
+        "Daniel Urresti fue ministro del Interior",
+        "durante el gobierno de Alejandro Toledo",
+      ]),
+      ["Daniel Urresti fue ministro del Interior durante el gobierno de Alejandro Toledo."],
+    );
+    assert.deepEqual(
+      claimsToJudge("Que López Aliaga prometiera 10.000 motos demuestra que las 10.000 fueron entregadas.", [
+        "prometió 10.000 motos",
+        "las entregó",
+      ]),
+      ["Que López Aliaga prometiera 10.000 motos demuestra que las 10.000 fueron entregadas."],
+    );
+    assert.deepEqual(claimsToJudge("Fue ministro. Renunció en 2009.", ["Fue ministro.", "Renunció en 2009."]), [
+      "Fue ministro.",
+      "Renunció en 2009.",
     ]);
   });
 

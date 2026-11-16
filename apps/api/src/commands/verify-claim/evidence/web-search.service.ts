@@ -1,9 +1,16 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { tavily, type TavilySearchOptions } from "@tavily/core";
+import OpenAI from "openai";
 import type { EvidenceItem } from "../graph/state";
 import { claimFocus, mentionsClaim, sameCandidate } from "../profile/rules";
 import { socialPostCounts } from "./attribution";
-import { isFactCheckUrl, isIpeUrl, isSocialUrl, NEWS_DOMAINS, preferReporting, roleForUrl, SOCIAL_DOMAINS, socialNetwork, trustedOutlet } from "./outlets";
+import { isFactCheckUrl, isIpeUrl, isSocialUrl, NEWS_DOMAINS, preferReporting, roleForUrl, SOCIAL_DOMAINS, socialNetwork, TRUSTED_DOMAINS, trustedOutlet } from "./outlets";
+import { needsPressFallback, pressItems } from "./press-fallback";
+
+interface SearchBatch {
+  items: EvidenceItem[];
+  unavailable: boolean;
+}
 
 @Injectable()
 export class WebSearchService {
@@ -21,19 +28,11 @@ export class WebSearchService {
     const focus = identity?.name ? claimFocus(queries[0], identity.name) : queries[0];
     const aboutPerson = /reelec/i.test(queries[0]);
     const aboutClaim = aboutPerson || focus.length < 8 ? queries[0] : focus;
-    const [lists, checks, trusted] = await Promise.all([
-      Promise.all(queries.map((text) => this.one(text))),
-      this.factChecks(aboutClaim),
-      this.trustedPress(queries),
-    ]);
-    const notes = unique([...checks, ...trusted, ...lists.flat()]);
-    if (!identity?.name.trim()) return notes;
-    return notes.filter((item) => {
-      if (isIpeUrl(item.url)) return true;
-      const aboutCandidate = sameCandidate(item.title, item.snippet, identity);
-      if (trustedOutlet(item.url) && mentionsClaim(item.title, item.snippet, queries[0], identity.name)) return true;
-      return aboutCandidate;
-    });
+    const found = await this.gather(queries, aboutClaim);
+    const notes = this.keep(found.items, queries[0], identity);
+    if (!needsPressFallback(notes.length, found.unavailable)) return notes;
+    this.logger.warn("Tavily no disponible: se consulta la prensa con OpenAI");
+    return this.keep(await this.openAiPress(queries), queries[0], identity);
   }
 
   async socialPosts(statement: string, identity: { name: string; party?: string }): Promise<EvidenceItem[]> {
@@ -51,9 +50,9 @@ export class WebSearchService {
     };
     const restricted = await this.ask(query, { ...options, includeDomainsMode: "restrict" });
     const pages =
-      restricted.length > 0
-        ? restricted
-        : (await this.ask(query, { ...options, includeDomainsMode: "prefer" })).filter((item) => isSocialUrl(item.url));
+      restricted.items.length > 0
+        ? restricted.items
+        : (await this.ask(query, { ...options, includeDomainsMode: "prefer" })).items.filter((item) => isSocialUrl(item.url));
     return pages.flatMap((item) => {
       if (!socialPostCounts(item.title, item.snippet, statement, identity)) return [];
       const network = socialNetwork(item.url) ?? "redes";
@@ -61,7 +60,7 @@ export class WebSearchService {
     });
   }
 
-  private async factChecks(text: string): Promise<EvidenceItem[]> {
+  private async factChecks(text: string): Promise<SearchBatch> {
     const [republica, peruCheck] = await Promise.all([
       this.ask(text, {
         topic: "general",
@@ -78,10 +77,11 @@ export class WebSearchService {
         includeDomainsMode: "restrict",
       }),
     ]);
-    return [...republica.filter((item) => isFactCheckUrl(item.url)), ...peruCheck];
+    const items = [...republica.items.filter((item) => isFactCheckUrl(item.url)), ...peruCheck.items];
+    return { items, unavailable: items.length === 0 && (republica.unavailable || peruCheck.unavailable) };
   }
 
-  private async trustedPress(texts: string[]): Promise<EvidenceItem[]> {
+  private async trustedPress(texts: string[]): Promise<SearchBatch> {
     const queries = [...new Set(texts.map((text) => text.trim()).filter((text) => text.length >= 3))].slice(0, 2);
     const domains = [
       "rpp.pe",
@@ -106,10 +106,11 @@ export class WebSearchService {
         ),
       ),
     );
-    return preferReporting(lists.flat());
+    const items = preferReporting(lists.flatMap((batch) => batch.items));
+    return { items, unavailable: items.length === 0 && lists.some((batch) => batch.unavailable) };
   }
 
-  private async one(text: string): Promise<EvidenceItem[]> {
+  private async one(text: string): Promise<SearchBatch> {
     const [news, circulation] = await Promise.all([
       this.ask(text, {
         topic: "news",
@@ -125,10 +126,69 @@ export class WebSearchService {
         excludeDomains: NEWS_DOMAINS,
       }),
     ]);
-    return [...news, ...circulation];
+    const items = [...news.items, ...circulation.items];
+    return { items, unavailable: items.length === 0 && (news.unavailable || circulation.unavailable) };
   }
 
-  private async ask(query: string, options: TavilySearchOptions): Promise<EvidenceItem[]> {
+  private async gather(queries: string[], aboutClaim: string): Promise<SearchBatch> {
+    const [lists, checks, trusted] = await Promise.all([
+      Promise.all(queries.map((text) => this.one(text))),
+      this.factChecks(aboutClaim),
+      this.trustedPress(queries),
+    ]);
+    const parts = [...lists.flat(), checks, trusted];
+    const items = unique(parts.flatMap((part) => part.items));
+    return { items, unavailable: items.length === 0 && parts.some((part) => part.unavailable) };
+  }
+
+  private keep(items: EvidenceItem[], query: string, identity?: { name: string; party?: string }): EvidenceItem[] {
+    const notes = unique(items);
+    if (!identity?.name.trim()) return notes;
+    return notes.filter((item) => {
+      if (isIpeUrl(item.url)) return true;
+      const aboutCandidate = sameCandidate(item.title, item.snippet, identity);
+      if (trustedOutlet(item.url) && mentionsClaim(item.title, item.snippet, query, identity.name)) return true;
+      return aboutCandidate;
+    });
+  }
+
+  private async openAiPress(queries: string[]): Promise<EvidenceItem[]> {
+    const apiKey = process.env.OPENAI_API_KEY?.trim();
+    const texts = [...new Set(queries.map((text) => text.trim()).filter((text) => text.length >= 3))]
+      .sort((left, right) => right.length - left.length)
+      .slice(0, 2);
+    if (!apiKey || texts.length === 0) return [];
+    try {
+      const client = new OpenAI({ apiKey });
+      const response = await client.responses.create({
+        model: process.env.OPENAI_MODEL || "gpt-5.1",
+        store: false,
+        max_output_tokens: 800,
+        tool_choice: "required",
+        include: ["web_search_call.action.sources"],
+        instructions:
+          "Busca notas de la prensa peruana. Escribe cada nota en su propia línea: una frase tomada de la página y, al final, la cita. No agregues datos que no estén en esa página.",
+        input: texts.join("\n"),
+        tools: [
+          {
+            type: "web_search",
+            external_web_access: true,
+            search_context_size: "medium",
+            filters: { allowed_domains: [...TRUSTED_DOMAINS] },
+            user_location: { type: "approximate", country: "PE", city: "Lima", timezone: "America/Lima" },
+          },
+        ],
+      });
+      const items = pressItems(response.output);
+      this.logger.log(`Respaldo de prensa: ${items.length} notas`);
+      return items;
+    } catch (error) {
+      this.logger.warn(`OpenAI no pudo buscar prensa: ${error instanceof Error ? error.message : error}`);
+      return [];
+    }
+  }
+
+  private async ask(query: string, options: TavilySearchOptions): Promise<SearchBatch> {
     const apiKey = process.env.TAVILY_API_KEY?.trim();
     try {
       const client = tavily(apiKey ? { apiKey } : {});
@@ -138,7 +198,7 @@ export class WebSearchService {
         country: "peru",
         ...options,
       });
-      return response.results.flatMap((result) => {
+      const items = response.results.flatMap((result) => {
         const raw = typeof result.rawContent === "string" ? result.rawContent : "";
         const body = options.includeRawContent ? [result.content, raw].filter(Boolean).join("\n") : result.content;
         if (!body || !result.url) return [];
@@ -157,9 +217,10 @@ export class WebSearchService {
           },
         ];
       });
+      return { items, unavailable: false };
     } catch (error) {
       this.logger.warn(`Tavily no disponible: ${error instanceof Error ? error.message : error}`);
-      return [];
+      return { items: [], unavailable: true };
     }
   }
 }

@@ -180,7 +180,8 @@ export function evidenceFits(
   );
   const tokens = (claims.join(" ").match(/\p{L}+/gu) ?? [])
     .map(fold)
-    .filter((word) => word.length >= 5 && !FILLER.has(word) && !skipped.has(word));
+    .filter((word) => !FILLER.has(word) && !skipped.has(word))
+    .filter((word) => word.length >= 5 || (word.length >= 3 && !VERBS.has(word)));
   if (tokens.length === 0) return false;
   return tokens.some((token) => text.includes(token));
 }

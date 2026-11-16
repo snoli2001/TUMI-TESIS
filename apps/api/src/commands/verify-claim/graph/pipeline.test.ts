@@ -85,3 +85,28 @@ test("el grafo degradado no inventa probabilidades", async () => {
   assert.equal(decisions.length, 1);
   assert.ok(tokens[0]?.includes("no verificable"));
 });
+
+test("una oración partida se juzga entera", async () => {
+  const judged: string[] = [];
+  const deps = degradedDeps();
+  const query = "Daniel Urresti fue ministro del Interior durante el gobierno de Alejandro Toledo.";
+  deps.extractClaims = async () => ["Daniel Urresti fue ministro del Interior", "durante el gobierno de Alejandro Toledo"];
+  deps.judgeClaim = async (claim) => {
+    judged.push(claim);
+    return { verdict: "falso", confidence: 0.9, degraded: false, explanation: "", decisions: [] };
+  };
+  const graph = buildGraph(deps, new MemorySaver());
+  const result = await graph.invoke(
+    { query, sessionId: "sesion-oracion", consultaId: "consulta-oracion" },
+    {
+      configurable: {
+        thread_id: "consulta-oracion",
+        hooks: { onNode: () => undefined, onDecision: () => undefined, onToken: () => undefined },
+      },
+    },
+  );
+  assert.deepEqual(judged, [query]);
+  assert.equal(result.verdicts.length, 1);
+  assert.equal(result.verdicts[0]?.claim, query);
+  assert.equal(result.verdicts[0]?.verdict, "falso");
+});
