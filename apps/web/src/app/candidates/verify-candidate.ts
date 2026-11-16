@@ -2,17 +2,17 @@ import { Component, inject, input, signal } from "@angular/core";
 import type { ClaimVerdict, FactCheckResult, SourceRef } from "@tumi/contracts";
 import { ApiService } from "../api.service";
 import {
-  citaPrincipal,
-  etiquetaCita,
-  etiquetaEstado,
-  etiquetaOrigen,
-  etiquetaPaso,
-  etiquetaPostura,
-  fuentesDeContraste,
-  fuentesDePrueba,
-  lecturaClasificador,
-} from "../etiquetas";
-import { markdownAHtml } from "../markdown";
+  citationLabel,
+  classifierReading,
+  contrastSources,
+  originLabel,
+  primaryCitation,
+  proofSources,
+  stanceLabel,
+  statusLabel,
+  stepLabel,
+} from "../labels";
+import { markdownToHtml } from "../markdown";
 import { SessionService } from "../session.service";
 
 interface NodeState {
@@ -25,7 +25,7 @@ interface NodeState {
   templateUrl: "./verify-candidate.html",
   styleUrl: "../verify-claim/verify-claim.scss",
 })
-export class VerificarCandidato {
+export class VerifyCandidate {
   private readonly api = inject(ApiService);
   private readonly session = inject(SessionService);
 
@@ -81,22 +81,22 @@ export class VerificarCandidato {
     return this.result()?.sources ?? [];
   }
 
-  prueba(): SourceRef[] {
-    return fuentesDePrueba(this.sources());
+  proof(): SourceRef[] {
+    return proofSources(this.sources());
   }
 
-  contraste(): SourceRef[] {
-    return fuentesDeContraste(this.sources());
+  contrast(): SourceRef[] {
+    return contrastSources(this.sources());
   }
 
-  etiquetaPaso = etiquetaPaso;
-  etiquetaEstado = etiquetaEstado;
-  etiquetaOrigen = etiquetaOrigen;
-  etiquetaPostura = etiquetaPostura;
-  cita = citaPrincipal;
-  etiquetaCita = etiquetaCita;
-  lectura = (verdict: ClaimVerdict) => lecturaClasificador(verdict.decisions);
-  formato = markdownAHtml;
+  stepLabel = stepLabel;
+  statusLabel = statusLabel;
+  originLabel = originLabel;
+  stanceLabel = stanceLabel;
+  citation = primaryCitation;
+  citationLabel = citationLabel;
+  reading = (verdict: ClaimVerdict) => classifierReading(verdict.decisions);
+  asHtml = markdownToHtml;
 
   verdicts(): ClaimVerdict[] {
     return this.result()?.verdicts ?? [];

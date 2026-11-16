@@ -38,7 +38,7 @@ function degradedDeps(): AgentDeps {
     searchEvidence: async () => [evidence],
     planQueries: async () => [],
     rerank: async (_claims, items) => items,
-    clasificarCirculacion: async (_claims, items) => items,
+    classifyCirculation: async (_claims, items) => items,
     judgeClaim: async () => ({
       verdict: "no_verificable",
       confidence: null,

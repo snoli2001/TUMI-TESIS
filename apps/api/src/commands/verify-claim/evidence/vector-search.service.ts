@@ -79,7 +79,7 @@ export class VectorSearchService {
     const hojaVidaIds = await this.readyDocumentOwners(scope.hojaVidaIds ?? []);
     const narrowed = { ...scope, hojaVidaIds };
     const lexical =
-      scope.incluirPlan === false ? [] : await this.searchPostgres(query, narrowed.codigoExpedientes);
+      scope.includePlan === false ? [] : await this.searchPostgres(query, narrowed.codigoExpedientes);
     const semantic = await this.searchQdrant(query, narrowed);
     const merged = new Map<string, EvidenceItem>();
     for (const item of [...semantic, ...lexical]) merged.set(item.id, item);

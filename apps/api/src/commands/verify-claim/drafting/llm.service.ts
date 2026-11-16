@@ -3,7 +3,7 @@ import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { ChatOpenAI } from "@langchain/openai";
 import { deterministicClaims, textOf } from "../../../shared/text";
 import type { TumiState } from "../graph/state";
-import { consultasDe, consultaWeb, type TipoPregunta } from "../profile/reglas";
+import { searchQueries, webQuery, type QuestionKind } from "../profile/rules";
 
 @Injectable()
 export class LlmService {
@@ -34,28 +34,28 @@ export class LlmService {
     }
   }
 
-  async planQueries(tipo: TipoPregunta, nombre: string, query: string): Promise<string[]> {
-    const hecho = consultaWeb(nombre, query, nombre);
-    const base = consultasDe(tipo, nombre, hecho);
+  async planQueries(kind: QuestionKind, name: string, query: string): Promise<string[]> {
+    const fact = webQuery(name, query, name);
+    const base = searchQueries(kind, name, fact);
     if (!this.enabled()) return base;
     try {
       const model = new ChatOpenAI({
         model: process.env.OPENAI_MODEL_MINI || "gpt-5.1-mini",
         apiKey: process.env.OPENAI_API_KEY,
       });
-      const objetivo =
-        tipo === "penal"
+      const goal =
+        kind === "criminal"
           ? "Busca denuncias, expedientes y procesos de esa persona."
-          : tipo === "propuesta"
+          : kind === "proposal"
             ? "Busca declaraciones y propuestas dichas en público."
             : "Busca el hecho de la afirmación.";
       const response = await model.invoke([
         new SystemMessage(
-          `Devuelve solo JSON {"consultas": string[]}. Máximo 3. Cada consulta incluye el nombre del candidato. ${objetivo} No inventes datos que no estén en la afirmación.`,
+          `Devuelve solo JSON {"queries": string[]}. Máximo 3. Cada consulta incluye el nombre del candidato. ${goal} No inventes datos que no estén en la afirmación.`,
         ),
-        new HumanMessage(`${nombre}. ${query}`),
+        new HumanMessage(`${name}. ${query}`),
       ]);
-      const parsed = parseConsultas(textOf(response.content));
+      const parsed = parseQueries(textOf(response.content));
       return parsed.length > 0 ? parsed : base;
     } catch (error) {
       this.logger.warn(`Búsqueda degradada: ${error instanceof Error ? error.message : error}`);
@@ -117,13 +117,13 @@ export class LlmService {
   }
 }
 
-function parseConsultas(raw: string): string[] {
+function parseQueries(raw: string): string[] {
   const json = raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1);
   if (!json) return [];
   try {
-    const parsed = JSON.parse(json) as { consultas?: unknown };
-    if (!Array.isArray(parsed.consultas)) return [];
-    return parsed.consultas
+    const parsed = JSON.parse(json) as { queries?: unknown };
+    if (!Array.isArray(parsed.queries)) return [];
+    return parsed.queries
       .filter((item): item is string => typeof item === "string")
       .map((item) => item.trim())
       .filter((item) => item.length > 0)
@@ -149,7 +149,7 @@ function parseClaims(raw: string): string[] {
   }
 }
 
-function origenEnEspanol(origin: string): string {
+function originLabel(origin: string): string {
   if (origin === "jne") return "padrón";
   if (origin === "tavily") return "web";
   if (origin === "adjunto") return "adjunto";
@@ -161,7 +161,7 @@ function degradedConclusion(state: TumiState): string {
   const prueba = state.evidence.filter((item) => item.role !== "contraste");
   const contraste = state.evidence.filter((item) => item.role === "contraste");
   const lista = (items: TumiState["evidence"]) =>
-    items.map((item) => `- ${item.title} (${origenEnEspanol(item.origin)})`).join("\n");
+    items.map((item) => `- ${item.title} (${originLabel(item.origin)})`).join("\n");
   return [
     "Esta respuesta es de demostración: sin clave de OpenAI, TUMI no asigna un veredicto ni probabilidades.",
     "",

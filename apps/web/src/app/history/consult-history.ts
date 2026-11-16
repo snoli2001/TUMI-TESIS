@@ -1,7 +1,7 @@
 import { Component, inject, signal } from "@angular/core";
 import type { HistoryItem } from "@tumi/contracts";
 import { ApiService } from "../api.service";
-import { markdownAHtml } from "../markdown";
+import { markdownToHtml } from "../markdown";
 import { SessionService } from "../session.service";
 
 @Component({
@@ -13,7 +13,7 @@ export class ConsultHistoryPage {
   private readonly session = inject(SessionService);
   rows = signal<HistoryItem[]>([]);
   error = signal("");
-  formato = markdownAHtml;
+  asHtml = markdownToHtml;
 
   constructor() {
     this.api.history(this.session.id()).subscribe({

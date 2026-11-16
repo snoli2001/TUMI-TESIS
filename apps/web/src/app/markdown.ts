@@ -1,4 +1,4 @@
-export function markdownAHtml(source: string): string {
+export function markdownToHtml(source: string): string {
   const lines = source.replace(/\r\n/g, "\n").split("\n");
   const blocks: string[] = [];
   let list: string[] = [];

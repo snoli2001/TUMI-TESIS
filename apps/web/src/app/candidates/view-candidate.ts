@@ -2,11 +2,11 @@ import { Component, inject, signal } from "@angular/core";
 import { ActivatedRoute, RouterLink } from "@angular/router";
 import type { CandidateProfile, HojaVidaInmueble, HojaVidaVehiculo, PlanPropuesta } from "@tumi/contracts";
 import { ApiService } from "../api.service";
-import { VerificarCandidato } from "./verify-candidate";
+import { VerifyCandidate } from "./verify-candidate";
 
 @Component({
   selector: "app-candidate-detail",
-  imports: [RouterLink, VerificarCandidato],
+  imports: [RouterLink, VerifyCandidate],
   templateUrl: "./view-candidate.html",
 })
 export class ViewCandidatePage {

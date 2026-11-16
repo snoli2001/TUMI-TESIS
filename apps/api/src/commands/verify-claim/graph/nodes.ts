@@ -1,8 +1,8 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { EntityRef } from "@tumi/contracts";
-import { tipoDePregunta } from "../profile/reglas";
+import { questionKind, sameCandidate } from "../profile/rules";
 import type { AgentDeps, StreamHooks, TumiState } from "./state";
-import { nombresAlInicio, pruebaSirve } from "./menciones";
+import { evidenceFits, leadingNames } from "./mentions";
 
 function hooks(config: RunnableConfig): StreamHooks {
   return (
@@ -55,10 +55,10 @@ export async function investigate(
 ): Promise<Partial<TumiState>> {
   const stream = hooks(config);
   stream.onNode("investigacion", "start");
-  const nombre = state.entities[0]?.nombre ?? "";
-  const consultas = await deps.planQueries(tipoDePregunta(state.query), nombre, state.query);
+  const name = state.entities[0]?.nombre ?? "";
+  const queries = await deps.planQueries(questionKind(state.query), name, state.query);
   stream.onNode("investigacion", "done");
-  return { consultas };
+  return { queries };
 }
 
 export async function retrieve(
@@ -73,18 +73,25 @@ export async function retrieve(
     state.claims,
     state.entities,
     state.sessionId,
-    state.consultas,
+    state.queries,
   );
-  const nombres = [
+  const names = [
     ...state.entities.flatMap((entity) => entity.nombre.split(/\s+/)),
-    ...state.claims.flatMap(nombresAlInicio),
+    ...state.claims.flatMap(leadingNames),
   ];
-  const prueba = found.filter((item) => item.role !== "contraste" && pruebaSirve(state.claims, item, nombres));
-  const contraste = found.filter((item) => !prueba.includes(item));
-  const ranked = await deps.rerank(state.claims, prueba);
-  const circulacion = await deps.clasificarCirculacion(state.claims, contraste);
+  const identity = state.entities[0];
+  const proof = found.filter((item) => {
+    if (item.role === "contraste") return false;
+    if (item.origin === "tavily" && identity && !sameCandidate(item.title, item.snippet, { name: identity.nombre, party: identity.partido })) {
+      return false;
+    }
+    return evidenceFits(state.claims, item, names);
+  });
+  const contrast = found.filter((item) => !proof.includes(item));
+  const ranked = await deps.rerank(state.claims, proof);
+  const circulation = await deps.classifyCirculation(state.claims, contrast);
   stream.onNode("recuperacion", "done");
-  return { evidence: [...ranked, ...circulacion] };
+  return { evidence: [...ranked, ...circulation] };
 }
 
 export async function verify(

@@ -1,45 +1,48 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { tavily, type TavilySearchOptions } from "@tavily/core";
 import type { EvidenceItem } from "../graph/state";
-import { notaDelCandidato } from "../profile/reglas";
-import { DOMINIOS_MEDIO, rolDeUrl } from "./medios";
+import { sameCandidate } from "../profile/rules";
+import { NEWS_DOMAINS, roleForUrl } from "./outlets";
 
 @Injectable()
 export class WebSearchService {
   private readonly logger = new Logger(WebSearchService.name);
 
-  async search(query: string | string[], apellido = ""): Promise<EvidenceItem[]> {
-    const consultas = (Array.isArray(query) ? query : [query])
+  async search(
+    query: string | string[],
+    identity?: { name: string; party?: string },
+  ): Promise<EvidenceItem[]> {
+    const queries = (Array.isArray(query) ? query : [query])
       .map((item) => item.trim().slice(0, 400))
       .filter((item) => item.length >= 3)
       .slice(0, 3);
-    if (consultas.length === 0) return [];
-    const listas = await Promise.all(consultas.map((text) => this.una(text)));
-    const notas = unicos(listas.flat());
-    if (apellido.trim().length < 3) return notas;
-    return notas.filter((item) => notaDelCandidato(item.title, item.snippet, apellido));
+    if (queries.length === 0) return [];
+    const lists = await Promise.all(queries.map((text) => this.one(text)));
+    const notes = unique(lists.flat());
+    if (!identity?.name.trim()) return notes;
+    return notes.filter((item) => sameCandidate(item.title, item.snippet, identity));
   }
 
-  private async una(text: string): Promise<EvidenceItem[]> {
-    const [medios, circulacion] = await Promise.all([
-      this.consultar(text, {
+  private async one(text: string): Promise<EvidenceItem[]> {
+    const [news, circulation] = await Promise.all([
+      this.ask(text, {
         topic: "news",
         searchDepth: "advanced",
         maxResults: 4,
-        includeDomains: DOMINIOS_MEDIO,
+        includeDomains: NEWS_DOMAINS,
         includeDomainsMode: "restrict",
       }),
-      this.consultar(text, {
+      this.ask(text, {
         topic: "general",
         searchDepth: "basic",
         maxResults: 4,
-        excludeDomains: DOMINIOS_MEDIO,
+        excludeDomains: NEWS_DOMAINS,
       }),
     ]);
-    return [...medios, ...circulacion];
+    return [...news, ...circulation];
   }
 
-  private async consultar(query: string, opciones: TavilySearchOptions): Promise<EvidenceItem[]> {
+  private async ask(query: string, options: TavilySearchOptions): Promise<EvidenceItem[]> {
     const apiKey = process.env.TAVILY_API_KEY?.trim();
     try {
       const client = tavily(apiKey ? { apiKey } : {});
@@ -47,11 +50,11 @@ export class WebSearchService {
         chunksPerSource: 2,
         includeAnswer: false,
         country: "peru",
-        ...opciones,
+        ...options,
       });
       return response.results.flatMap((result) => {
         if (!result.content || !result.url) return [];
-        const role = rolDeUrl(result.url);
+        const role = roleForUrl(result.url);
         return [
           {
             id: result.id || `tavily-${hash(result.url)}`,
@@ -73,7 +76,7 @@ export class WebSearchService {
   }
 }
 
-function unicos(items: EvidenceItem[]): EvidenceItem[] {
+function unique(items: EvidenceItem[]): EvidenceItem[] {
   const map = new Map<string, EvidenceItem>();
   for (const item of items) map.set(item.url ?? item.id, item);
   return [...map.values()];

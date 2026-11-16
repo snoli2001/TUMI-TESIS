@@ -1,8 +1,8 @@
 import { Component, signal } from "@angular/core";
 import type { ClaimVerdict, FactCheckResult, SourceRef } from "@tumi/contracts";
 import { ApiService } from "../api.service";
-import { citaDelPlan, etiquetaEstado, etiquetaOrigen, etiquetaPaso, etiquetaPostura, fuentesDeContraste, fuentesDePrueba, lecturaClasificador } from "../etiquetas";
-import { markdownAHtml } from "../markdown";
+import { primaryCitation, statusLabel, originLabel, stepLabel, stanceLabel, contrastSources, proofSources, classifierReading } from "../labels";
+import { markdownToHtml } from "../markdown";
 import { SessionService } from "../session.service";
 
 interface NodeState {
@@ -70,21 +70,21 @@ export class VerifyClaimPage {
     return this.result()?.sources ?? [];
   }
 
-  prueba(): SourceRef[] {
-    return fuentesDePrueba(this.sources());
+  proof(): SourceRef[] {
+    return proofSources(this.sources());
   }
 
-  contraste(): SourceRef[] {
-    return fuentesDeContraste(this.sources());
+  contrast(): SourceRef[] {
+    return contrastSources(this.sources());
   }
 
-  etiquetaPaso = etiquetaPaso;
-  etiquetaEstado = etiquetaEstado;
-  etiquetaOrigen = etiquetaOrigen;
-  etiquetaPostura = etiquetaPostura;
-  cita = citaDelPlan;
-  lectura = (verdict: ClaimVerdict) => lecturaClasificador(verdict.decisions);
-  formato = markdownAHtml;
+  stepLabel = stepLabel;
+  statusLabel = statusLabel;
+  originLabel = originLabel;
+  stanceLabel = stanceLabel;
+  citation = primaryCitation;
+  reading = (verdict: ClaimVerdict) => classifierReading(verdict.decisions);
+  asHtml = markdownToHtml;
 
   verdicts(): ClaimVerdict[] {
     return this.result()?.verdicts ?? [];

@@ -23,7 +23,7 @@
         }
       </p>
     }
-    <div class="prose" [innerHTML]="formato(row.conclusion)"></div>
+    <div class="prose" [innerHTML]="asHtml(row.conclusion)"></div>
     <p class="muted">{{ row.createdAt }}</p>
   </article>
 }

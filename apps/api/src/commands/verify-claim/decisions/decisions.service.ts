@@ -68,7 +68,7 @@ export class DecisionsService {
     return (kept.length > 0 ? kept : limited.slice(0, 3)).slice(0, 8);
   }
 
-  async clasificarCirculacion(claims: string[], evidence: EvidenceItem[]): Promise<EvidenceItem[]> {
+  async classifyCirculation(claims: string[], evidence: EvidenceItem[]): Promise<EvidenceItem[]> {
     const limited = evidence.slice(0, 5);
     if (!this.enabled() || limited.length === 0) return limited;
     const answers = await this.ask(

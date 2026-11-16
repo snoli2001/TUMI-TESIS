@@ -31,7 +31,7 @@
     @if (nodes().length) {
       <ol class="nodes" aria-label="Pasos de la verificación">
         @for (node of nodes(); track node.node) {
-          <li [class.live]="node.status === 'start'">{{ etiquetaPaso(node.node) }} · {{ etiquetaEstado(node.status) }}</li>
+          <li [class.live]="node.status === 'start'">{{ stepLabel(node.node) }} · {{ statusLabel(node.status) }}</li>
         }
       </ol>
     }
@@ -64,20 +64,20 @@
             <p class="eyebrow">Afirmación</p>
             <p>{{ afirmacion.verdicts[0]?.claim || afirmacion.query }}</p>
           </div>
-          @if (cita(afirmacion.sources); as fuente) {
+          @if (citation(afirmacion.sources); as source) {
             <div>
               <p class="eyebrow">Plan de gobierno</p>
-              <p>{{ fuente.snippet }}</p>
+              <p>{{ source.snippet }}</p>
               <p class="muted">
-                @if (fuente.codigoExpediente) {
-                  {{ fuente.codigoExpediente }}
+                @if (source.codigoExpediente) {
+                  {{ source.codigoExpediente }}
                 }
-                @if (fuente.pagina !== null) {
-                  · página {{ fuente.pagina }}
+                @if (source.pagina !== null) {
+                  · página {{ source.pagina }}
                 }
               </p>
-              @if (fuente.url) {
-                <a [href]="fuente.url" target="_blank" rel="noreferrer">Abrir esta página</a>
+              @if (source.url) {
+                <a [href]="source.url" target="_blank" rel="noreferrer">Abrir esta página</a>
               }
             </div>
           }
@@ -98,40 +98,40 @@
           </p>
         }
         @if (afirmacion.verdicts[0]; as verdict) {
-          @if (lectura(verdict); as clasificador) {
-            @if (clasificador.respalda !== null) {
-              <p class="muted">Respalda {{ (clasificador.respalda * 100).toFixed(0) }}%</p>
-              <div class="bar"><span [style.width.%]="clasificador.respalda * 100"></span></div>
+          @if (reading(verdict); as scores) {
+            @if (scores.supports !== null) {
+              <p class="muted">Respalda {{ (scores.supports * 100).toFixed(0) }}%</p>
+              <div class="bar"><span [style.width.%]="scores.supports * 100"></span></div>
             }
-            @if (clasificador.niega !== null) {
-              <p class="muted">Niega {{ (clasificador.niega * 100).toFixed(0) }}%</p>
-              <div class="bar"><span [style.width.%]="clasificador.niega * 100"></span></div>
+            @if (scores.denies !== null) {
+              <p class="muted">Niega {{ (scores.denies * 100).toFixed(0) }}%</p>
+              <div class="bar"><span [style.width.%]="scores.denies * 100"></span></div>
             }
-            @if (clasificador.solidez !== null) {
-              <p class="muted">Solidez @if (clasificador.solidezTexto) { {{ clasificador.solidezTexto }} }</p>
-              <div class="bar"><span [style.width.%]="clasificador.solidez * 100"></span></div>
+            @if (scores.strength !== null) {
+              <p class="muted">Solidez @if (scores.strengthText) { {{ scores.strengthText }} }</p>
+              <div class="bar"><span [style.width.%]="scores.strength * 100"></span></div>
             }
           }
         }
-        <div class="prose" [innerHTML]="formato(afirmacion.conclusion)"></div>
-        @if (prueba(afirmacion.sources).length) {
+        <div class="prose" [innerHTML]="asHtml(afirmacion.conclusion)"></div>
+        @if (proof(afirmacion.sources).length) {
           <h3>Fuentes</h3>
-          @for (source of prueba(afirmacion.sources); track source.id) {
+          @for (source of proof(afirmacion.sources); track source.id) {
             <p>
               <strong>{{ source.title }}</strong>
-              <span class="muted"> · {{ etiquetaOrigen(source.origin) }}</span>
+              <span class="muted"> · {{ originLabel(source.origin) }}</span>
               @if (source.url) {
                 <a [href]="source.url" target="_blank" rel="noreferrer">Abrir</a>
               }
             </p>
           }
         }
-        @if (contraste(afirmacion.sources).length) {
+        @if (contrast(afirmacion.sources).length) {
           <h3>Circula también</h3>
-          @for (source of contraste(afirmacion.sources); track source.id) {
+          @for (source of contrast(afirmacion.sources); track source.id) {
             <p>
               <strong>{{ source.title }}</strong>
-              <span class="postura"> · {{ etiquetaPostura(source.stance) }}</span>
+              <span class="postura"> · {{ stanceLabel(source.stance) }}</span>
               @if (source.url) {
                 <a [href]="source.url" target="_blank" rel="noreferrer">Abrir</a>
               }

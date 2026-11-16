@@ -1,4 +1,4 @@
-export const DOMINIOS_MEDIO = [
+export const NEWS_DOMAINS = [
   "elcomercio.pe",
   "gestion.pe",
   "peru21.pe",
@@ -41,7 +41,7 @@ export const DOMINIOS_MEDIO = [
   "gob.pe",
 ];
 
-const DOMINIOS_NO_VERIFICAN = [
+const NON_VERIFYING_DOMAINS = [
   "facebook.com",
   "fb.com",
   "fb.watch",
@@ -65,16 +65,16 @@ const DOMINIOS_NO_VERIFICAN = [
   "medium.com",
 ];
 
-export function rolDeUrl(url: string | null): "prueba" | "contraste" {
-  const host = hostDe(url);
+export function roleForUrl(url: string | null): "prueba" | "contraste" {
+  const host = hostOf(url);
   if (!host) return "contraste";
-  if (coincide(host, DOMINIOS_NO_VERIFICAN)) return "contraste";
+  if (matchesDomain(host, NON_VERIFYING_DOMAINS)) return "contraste";
   if (host === "gob.pe" || host.endsWith(".gob.pe")) return "prueba";
-  if (coincide(host, DOMINIOS_MEDIO)) return "prueba";
+  if (matchesDomain(host, NEWS_DOMAINS)) return "prueba";
   return "contraste";
 }
 
-function hostDe(url: string | null): string | null {
+function hostOf(url: string | null): string | null {
   if (!url) return null;
   try {
     return new URL(url).hostname.replace(/^www\./, "").toLowerCase();
@@ -83,6 +83,6 @@ function hostDe(url: string | null): string | null {
   }
 }
 
-function coincide(host: string, dominios: string[]): boolean {
-  return dominios.some((dominio) => host === dominio || host.endsWith(`.${dominio}`));
+function matchesDomain(host: string, domains: string[]): boolean {
+  return domains.some((domain) => host === domain || host.endsWith(`.${domain}`));
 }

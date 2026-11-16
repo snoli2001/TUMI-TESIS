@@ -1,4 +1,4 @@
-const TITULOS = new Set([
+const TITLES = new Set([
   "los",
   "las",
   "el",
@@ -11,25 +11,25 @@ const TITULOS = new Set([
   "senora",
 ]);
 
-export function menciones(query: string): string[] {
+export function mentions(query: string): string[] {
   const words = query.match(/\p{L}+/gu) ?? [];
   const picked: string[] = [];
   words.forEach((word, index) => {
-    if (word.length < 3 || !empiezaEnMayuscula(word)) return;
-    if (TITULOS.has(plegar(word))) return;
+    if (word.length < 3 || !startsWithCapital(word)) return;
+    if (TITLES.has(fold(word))) return;
     if (index === 0 && words.length > 2) return;
     picked.push(word);
   });
   if (picked.length === 0) {
     for (const word of words) {
-      if (word.length < 3 || !pareceApodo(word)) continue;
+      if (word.length < 3 || !looksLikeNickname(word)) continue;
       picked.push(word);
     }
   }
   return [...new Set(picked)].slice(0, 3);
 }
 
-const RELLENO = new Set([
+const FILLER = new Set([
   "que",
   "del",
   "los",
@@ -56,7 +56,7 @@ const RELLENO = new Set([
   "hasta",
 ]);
 
-const VERBO = new Set([
+const VERBS = new Set([
   "es",
   "son",
   "era",
@@ -117,55 +117,53 @@ const VERBO = new Set([
   "hizo",
 ]);
 
-export function nombresAlInicio(query: string): string[] {
+export function leadingNames(query: string): string[] {
   const words = query.match(/\p{L}+/gu) ?? [];
-  const primero = words[0];
-  const segundo = words[1];
-  if (!primero || primero.length < 3 || !segundo || !empiezaEnMayuscula(primero)) return [];
-  const cabeza = plegar(primero);
-  if (RELLENO.has(cabeza) || TITULOS.has(cabeza) || VERBO.has(cabeza)) return [];
-  if (segundo.length < 3 || RELLENO.has(plegar(segundo)) || TITULOS.has(plegar(segundo))) return [];
-  const sigueUnVerbo = words.slice(2).some((word) => VERBO.has(plegar(word)));
-  if (!empiezaEnMayuscula(segundo) && !sigueUnVerbo) return [];
-  return [primero, segundo];
+  const first = words[0];
+  const second = words[1];
+  if (!first || first.length < 3 || !second || !startsWithCapital(first)) return [];
+  const head = fold(first);
+  if (FILLER.has(head) || TITLES.has(head) || VERBS.has(head)) return [];
+  if (second.length < 3 || FILLER.has(fold(second)) || TITLES.has(fold(second))) return [];
+  const verbFollows = words.slice(2).some((word) => VERBS.has(fold(word)));
+  if (!startsWithCapital(second) && !verbFollows) return [];
+  return [first, second];
 }
 
-export function pruebaSirve(
+export function evidenceFits(
   claims: string[],
   item: { origin: string; title: string; snippet: string },
-  nombres: string[],
+  names: string[],
 ): boolean {
   if (item.origin !== "tavily") return true;
-  const text = plegar(`${item.title} ${item.snippet}`);
-  const apellidos = nombres.flatMap((nombre) => plegar(nombre).split(/\s+/)).filter((word) => word.length >= 4);
-  if (apellidos.length > 0 && !apellidos.some((apellido) => text.includes(apellido))) return false;
-  const consulta = plegar(claims.join(" "));
+  const text = fold(`${item.title} ${item.snippet}`);
+  const claim = fold(claims.join(" "));
   if (
-    /penal|antecedente|proceso|sentencia|condena|delito|viol/.test(consulta) &&
+    /penal|antecedente|proceso|sentencia|condena|delito|viol/.test(claim) &&
     /denuncia|expediente|proceso penal|sentencia|condena/.test(text)
   ) {
     return true;
   }
-  if (/promet|ofrec|propuesta|plan/.test(consulta) && /propuso|propuesta|ofrec|declar/.test(text)) {
+  if (/promet|ofrec|propuesta|plan/.test(claim) && /propuso|propuesta|ofrec|declar/.test(text)) {
     return true;
   }
-  const omitidos = new Set(
-    nombres.flatMap((nombre) => plegar(nombre).split(/\s+/)).filter((word) => word.length > 2),
+  const skipped = new Set(
+    names.flatMap((name) => fold(name).split(/\s+/)).filter((word) => word.length > 2),
   );
   const tokens = (claims.join(" ").match(/\p{L}+/gu) ?? [])
-    .map(plegar)
-    .filter((word) => word.length >= 5 && !RELLENO.has(word) && !omitidos.has(word));
+    .map(fold)
+    .filter((word) => word.length >= 5 && !FILLER.has(word) && !skipped.has(word));
   if (tokens.length === 0) return false;
   return tokens.some((token) => text.includes(token));
 }
 
-export function mejorCoincidencia<T extends { id: string; nombre: string }>(
+export function bestMatch<T extends { id: string; nombre: string }>(
   hits: Array<{ entity: T; tokens: string[] }>,
 ): T[] {
   const score = new Map<string, { entity: T; points: number }>();
   for (const hit of hits) {
-    const folded = plegar(hit.entity.nombre);
-    const points = hit.tokens.filter((token) => folded.includes(plegar(token))).length;
+    const folded = fold(hit.entity.nombre);
+    const points = hit.tokens.filter((token) => folded.includes(fold(token))).length;
     const current = score.get(hit.entity.id);
     if (!current || points > current.points) score.set(hit.entity.id, { entity: hit.entity, points });
   }
@@ -174,35 +172,35 @@ export function mejorCoincidencia<T extends { id: string; nombre: string }>(
   return [...score.values()].filter((item) => item.points === max).map((item) => item.entity);
 }
 
-export function nombresEnTexto(text: string, alias: string[]): string[] {
-  const omitidos = new Set(alias.map(plegar));
+export function namesInText(text: string, alias: string[]): string[] {
+  const skipped = new Set(alias.map(fold));
   const matches = text.match(/\p{Lu}[\p{L}'’]+(?:\s+\p{Lu}[\p{L}'’]+){1,2}/gu) ?? [];
   const names: string[] = [];
   for (const match of matches) {
-    const parts = match.split(/\s+/).filter((part) => !TITULOS.has(plegar(part)));
+    const parts = match.split(/\s+/).filter((part) => !TITLES.has(fold(part)));
     if (parts.length < 2) continue;
-    if (parts.every((part) => omitidos.has(plegar(part)))) continue;
+    if (parts.every((part) => skipped.has(fold(part)))) continue;
     const name = parts.join(" ");
     if (!names.includes(name)) names.push(name);
   }
   return names.slice(0, 6);
 }
 
-const PALABRAS_CON_Y = new Set(["hay", "muy", "hoy", "soy", "voy", "doy", "ley", "rey", "buey", "estoy", "cuy"]);
+const WORDS_ENDING_IN_Y = new Set(["hay", "muy", "hoy", "soy", "voy", "doy", "ley", "rey", "buey", "estoy", "cuy"]);
 
-function pareceApodo(word: string): boolean {
-  const folded = plegar(word);
-  if (PALABRAS_CON_Y.has(folded)) return false;
+function looksLikeNickname(word: string): boolean {
+  const folded = fold(word);
+  if (WORDS_ENDING_IN_Y.has(folded)) return false;
   if (/[kw]/.test(folded)) return true;
   return folded.length >= 4 && folded.endsWith("y");
 }
 
-function empiezaEnMayuscula(word: string): boolean {
+function startsWithCapital(word: string): boolean {
   const first = word.charAt(0);
   return first === first.toLocaleUpperCase("es") && first !== first.toLocaleLowerCase("es");
 }
 
-function plegar(word: string): string {
+function fold(word: string): string {
   return word
     .toLocaleLowerCase("es")
     .normalize("NFD")

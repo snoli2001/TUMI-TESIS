@@ -6,7 +6,7 @@ test("el plan no entra si la pregunta no es de propuestas", () => {
   const filter = evidenceFilter({
     codigoExpedientes: ["ERM.1"],
     hojaVidaIds: ["hv-1"],
-    incluirPlan: false,
+    includePlan: false,
   });
   assert.deepEqual(filter, {
     should: [

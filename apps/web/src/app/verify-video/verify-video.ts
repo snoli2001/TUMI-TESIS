@@ -2,8 +2,8 @@ import { Component, inject, signal } from "@angular/core";
 import { DomSanitizer, type SafeResourceUrl } from "@angular/platform-browser";
 import type { AfirmacionDeVideo, ClaimVerdict, VerificarVideoResult } from "@tumi/contracts";
 import { ApiService } from "../api.service";
-import { citaDelPlan, etiquetaEstado, etiquetaOrigen, etiquetaPaso, etiquetaPostura, fuentesDeContraste, fuentesDePrueba, lecturaClasificador } from "../etiquetas";
-import { markdownAHtml } from "../markdown";
+import { primaryCitation, statusLabel, originLabel, stepLabel, stanceLabel, contrastSources, proofSources, classifierReading } from "../labels";
+import { markdownToHtml } from "../markdown";
 import { SessionService } from "../session.service";
 
 interface NodeState {
@@ -27,15 +27,15 @@ export class VerifyVideoPage {
   titulo = signal<string | null>(null);
   segundo = signal(0);
 
-  etiquetaPaso = etiquetaPaso;
-  etiquetaEstado = etiquetaEstado;
-  etiquetaOrigen = etiquetaOrigen;
-  etiquetaPostura = etiquetaPostura;
-  prueba = fuentesDePrueba;
-  contraste = fuentesDeContraste;
-  cita = citaDelPlan;
-  lectura = (verdict: ClaimVerdict) => lecturaClasificador(verdict.decisions);
-  formato = markdownAHtml;
+  stepLabel = stepLabel;
+  statusLabel = statusLabel;
+  originLabel = originLabel;
+  stanceLabel = stanceLabel;
+  proof = proofSources;
+  contrast = contrastSources;
+  citation = primaryCitation;
+  reading = (verdict: ClaimVerdict) => classifierReading(verdict.decisions);
+  asHtml = markdownToHtml;
 
   private readonly sanitizer = inject(DomSanitizer);
 

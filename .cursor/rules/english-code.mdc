@@ -1,0 +1,23 @@
+---
+description: Code is written in English. Citizen-facing copy stays in Spanish.
+alwaysApply: true
+---
+
+# English for development
+
+Write identifiers, file names, comments, commit messages, and internal types in English.
+
+Keep Spanish for text a citizen reads and for values already stored: UI labels, explanations, API messages, the verdicts `verdadero` and `falso`, and contract fields such as `EntityRef.nombre` and source role `prueba` | `contraste`. Change those only together with a migration.
+
+```typescript
+// Bad
+export function decidir(ficha: FichaOficial): Regla | null
+
+// Good
+export function decide(profile: OfficialProfile): ProfileRule | null
+```
+
+```typescript
+// Good: the sentence is product copy
+explanation: `La hoja de vida de ${profile.name} declara antecedentes penales.`
+```
