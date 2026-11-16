@@ -3,6 +3,7 @@ import type { Response } from "express";
 import { factCheckRequestSchema } from "@tumi/contracts";
 import { sendHttpError } from "../../shared/http-error";
 import { openSession } from "../../shared/session/session-access";
+import { imageBytes } from "./drafting/image-bytes";
 import { VerifyClaimHandler } from "./verify-claim.handler";
 
 @Controller(["fact-check", "verificar-afirmacion"])
@@ -24,6 +25,10 @@ export class VerifyClaimController {
     }
     if (!parsed.data.hojaVidaId) {
       response.status(400).json({ message: "Elige un candidato antes de verificar" });
+      return;
+    }
+    if (parsed.data.image && !imageBytes(parsed.data.image)) {
+      response.status(400).json({ message: "La imagen debe ser JPG, PNG o WebP de hasta 4 MB" });
       return;
     }
     let sessionId: string;

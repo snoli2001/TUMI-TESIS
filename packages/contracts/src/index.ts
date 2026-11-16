@@ -99,11 +99,30 @@ export const factCheckResultSchema: z.ZodType<FactCheckResult> = z.object({
   entities: z.array(entitySchema),
 });
 
-export const factCheckRequestSchema: z.ZodType<FactCheckRequest> = z.object({
-  query: z.string().trim().min(3).max(2000),
-  sessionId: z.string().trim().min(1).max(80).optional(),
-  hojaVidaId: z.string().trim().min(1).max(160).optional(),
+const claimImageSchema = z.object({
+  mediaType: z.enum(["image/jpeg", "image/png", "image/webp"]),
+  data: z
+    .string()
+    .trim()
+    .min(32, "La imagen está vacía")
+    .max(5_600_000, "La imagen supera 4 MB"),
 });
+
+export const factCheckRequestSchema: z.ZodType<FactCheckRequest> = z
+  .object({
+    query: z.string().trim().max(2000),
+    sessionId: z.string().trim().min(1).max(80).optional(),
+    hojaVidaId: z.string().trim().min(1).max(160).optional(),
+    image: claimImageSchema.optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.query.length >= 3 || value.image) return;
+    context.addIssue({
+      code: "custom",
+      message: "Escribe un dato o adjunta una imagen",
+      path: ["query"],
+    });
+  });
 
 const sessionId = z.string().trim().min(1).max(80).optional();
 

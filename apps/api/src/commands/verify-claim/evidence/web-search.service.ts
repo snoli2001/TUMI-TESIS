@@ -2,7 +2,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import { tavily, type TavilySearchOptions } from "@tavily/core";
 import type { EvidenceItem } from "../graph/state";
 import { sameCandidate } from "../profile/rules";
-import { NEWS_DOMAINS, roleForUrl } from "./outlets";
+import { isFactCheckUrl, NEWS_DOMAINS, roleForUrl } from "./outlets";
 
 @Injectable()
 export class WebSearchService {
@@ -17,10 +17,24 @@ export class WebSearchService {
       .filter((item) => item.length >= 3)
       .slice(0, 3);
     if (queries.length === 0) return [];
-    const lists = await Promise.all(queries.map((text) => this.one(text)));
-    const notes = unique(lists.flat());
+    const [lists, checks] = await Promise.all([
+      Promise.all(queries.map((text) => this.one(text))),
+      this.factChecks(queries[0]),
+    ]);
+    const notes = unique([...checks, ...lists.flat()]);
     if (!identity?.name.trim()) return notes;
     return notes.filter((item) => sameCandidate(item.title, item.snippet, identity));
+  }
+
+  private async factChecks(text: string): Promise<EvidenceItem[]> {
+    const found = await this.ask(`${text} verificador La República`, {
+      topic: "general",
+      searchDepth: "advanced",
+      maxResults: 3,
+      includeDomains: ["larepublica.pe"],
+      includeDomainsMode: "restrict",
+    });
+    return found.filter((item) => isFactCheckUrl(item.url));
   }
 
   private async one(text: string): Promise<EvidenceItem[]> {

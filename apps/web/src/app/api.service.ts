@@ -76,8 +76,13 @@ export class ApiService {
     sessionId: string,
     onEvent: (event: StreamEvent) => void,
     hojaVidaId?: string,
+    image?: { mediaType: "image/jpeg" | "image/png" | "image/webp"; data: string },
   ) {
-    return this.stream("/api/fact-check/stream", { query, sessionId, hojaVidaId }, onEvent);
+    return this.stream(
+      "/api/fact-check/stream",
+      { query, sessionId, hojaVidaId, ...(image ? { image } : {}) },
+      onEvent,
+    );
   }
 
   streamVideo(

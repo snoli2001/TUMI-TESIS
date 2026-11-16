@@ -2,6 +2,7 @@ import type { ClaimVerdict, DecisionAnswer, SourceRef } from "@tumi/contracts";
 
 const PASOS: Record<string, string> = {
   transcripcion: "Transcripción",
+  lectura: "Lectura de la imagen",
   identificacion: "Identificación",
   extraccion: "Extracción",
   investigacion: "Investigación",
@@ -63,6 +64,7 @@ export function contrastSources(sources: SourceRef[]): SourceRef[] {
 }
 
 export function citationLabel(source: SourceRef): string {
+  if (isFactCheck(source.url)) return "Verificador LR";
   if (source.origin === "tavily") return "Medio";
   if (source.title === "Hoja de vida") return "Hoja de vida";
   if (source.title === "Plan de gobierno" || source.origin === "qdrant" || source.pagina !== null) {
@@ -78,6 +80,7 @@ export function primaryCitation(sources: SourceRef[]): SourceRef | null {
     proof.find((source) => source.title === "Hoja de vida") ??
     proof.find((source) => source.pagina !== null && source.codigoExpediente) ??
     proof.find((source) => source.origin === "qdrant") ??
+    proof.find((source) => isFactCheck(source.url)) ??
     proof[0] ??
     null
   );
@@ -109,6 +112,17 @@ export function classifierReading(decisions: DecisionAnswer[]): ClassifierReadin
 export function hasReading(verdict: ClaimVerdict): boolean {
   const reading = classifierReading(verdict.decisions);
   return reading.supports !== null || reading.denies !== null || reading.strength !== null;
+}
+
+function isFactCheck(url: string | null): boolean {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./, "").toLowerCase();
+    return (host === "larepublica.pe" || host.endsWith(".larepublica.pe")) && parsed.pathname.startsWith("/verificador");
+  } catch {
+    return false;
+  }
 }
 
 function strengthLabel(label: string | null): string | null {

@@ -1,4 +1,4 @@
-import { Component, inject, input, signal } from "@angular/core";
+import { Component, DestroyRef, ElementRef, inject, input, signal, viewChild } from "@angular/core";
 import type { ClaimVerdict, FactCheckResult, SourceRef } from "@tumi/contracts";
 import { ApiService } from "../api.service";
 import {
@@ -20,6 +20,14 @@ interface NodeState {
   status: string;
 }
 
+interface ClaimImage {
+  mediaType: "image/jpeg" | "image/png" | "image/webp";
+  data: string;
+}
+
+const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const IMAGE_LIMIT_BYTES = 4 * 1024 * 1024;
+
 @Component({
   selector: "app-verify-candidate",
   templateUrl: "./verify-candidate.html",
@@ -28,20 +36,68 @@ interface NodeState {
 export class VerifyCandidate {
   private readonly api = inject(ApiService);
   private readonly session = inject(SessionService);
+  private readonly fileInput = viewChild<ElementRef<HTMLInputElement>>("file");
+  private previewUrl = "";
 
   hojaVidaId = input.required<string>();
   nombre = input.required<string>();
 
   query = signal("");
+  image = signal<ClaimImage | null>(null);
+  imagePreview = signal("");
   busy = signal(false);
   error = signal("");
   nodes = signal<NodeState[]>([]);
   draft = signal("");
   result = signal<FactCheckResult | null>(null);
 
+  constructor() {
+    inject(DestroyRef).onDestroy(() => this.revokePreview());
+  }
+
+  onImage(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    if (!file) return;
+    if (!IMAGE_TYPES.has(file.type)) {
+      this.error.set("La imagen debe ser JPG, PNG o WebP");
+      input.value = "";
+      return;
+    }
+    if (file.size > IMAGE_LIMIT_BYTES) {
+      this.error.set("La imagen supera 4 MB");
+      input.value = "";
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result ?? "");
+      const data = result.slice(result.indexOf(",") + 1);
+      this.image.set({ mediaType: file.type as ClaimImage["mediaType"], data });
+      this.revokePreview();
+      this.previewUrl = URL.createObjectURL(file);
+      this.imagePreview.set(this.previewUrl);
+      this.error.set("");
+    };
+    reader.readAsDataURL(file);
+  }
+
+  clearImage(): void {
+    this.image.set(null);
+    this.imagePreview.set("");
+    this.revokePreview();
+    const input = this.fileInput()?.nativeElement;
+    if (input) input.value = "";
+  }
+
   async submit(): Promise<void> {
     const query = this.query().trim();
-    if (query.length < 3 || this.busy()) return;
+    const image = this.image();
+    if (this.busy()) return;
+    if (query.length < 3 && !image) {
+      this.error.set("Escribe un dato o adjunta una imagen");
+      return;
+    }
     this.busy.set(true);
     this.error.set("");
     this.nodes.set([]);
@@ -69,12 +125,18 @@ export class VerifyCandidate {
           const payload = event.data as { message: string };
           this.error.set(payload.message);
         }
-      }, this.hojaVidaId());
+      }, this.hojaVidaId(), image ?? undefined);
     } catch (error) {
       this.error.set(error instanceof Error ? error.message : "Error de red");
     } finally {
       this.busy.set(false);
     }
+  }
+
+  private revokePreview(): void {
+    if (!this.previewUrl) return;
+    URL.revokeObjectURL(this.previewUrl);
+    this.previewUrl = "";
   }
 
   sources(): SourceRef[] {

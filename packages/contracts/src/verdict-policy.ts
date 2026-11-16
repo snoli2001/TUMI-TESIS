@@ -87,10 +87,16 @@ export interface FactCheckResult {
   entities: EntityRef[];
 }
 
+export interface ClaimImage {
+  mediaType: "image/jpeg" | "image/png" | "image/webp";
+  data: string;
+}
+
 export interface FactCheckRequest {
   query: string;
   sessionId?: string;
   hojaVidaId?: string;
+  image?: ClaimImage;
 }
 
 export interface VideoSegmento {

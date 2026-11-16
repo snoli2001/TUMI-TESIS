@@ -52,21 +52,22 @@ export class VerifyClaimHandler implements OnModuleInit {
     if (request.hojaVidaId) {
       const profile = await loadProfile(request.hojaVidaId);
       if (!profile) throw new NotFoundException("Candidato no encontrado");
-      const rule = decide(request.query, profile);
-      const kind = questionKind(request.query);
+      const query = await this.queryFrom(request, `${profile.name}, ${profile.office} por ${profile.party}`, hooks);
+      const rule = decide(query, profile);
+      const kind = questionKind(query);
       if (rule && kind !== "criminal" && kind !== "proposal") {
-        return this.save(sessionId, await this.fromRule(sessionId, request.query, profile, rule, hooks));
+        return this.save(sessionId, await this.fromRule(sessionId, query, profile, rule, hooks));
       }
-      const result = await buildGraph(this.deps(profile, request.query), this.checkpointer).invoke(
+      const result = await buildGraph(this.deps(profile, query), this.checkpointer).invoke(
         {
-          query: request.query,
+          query,
           sessionId,
           consultaId: sessionId,
-          degraded: officialReading(request.query, profile) ? false : !this.decisions.enabled(),
+          degraded: officialReading(query, profile) ? false : !this.decisions.enabled(),
         },
         { configurable: { thread_id: sessionId, hooks } },
       );
-      return this.save(sessionId, this.fromGraph(sessionId, request.query, result));
+      return this.save(sessionId, this.fromGraph(sessionId, query, result));
     }
 
     const result = await this.graph.invoke(
@@ -79,6 +80,22 @@ export class VerifyClaimHandler implements OnModuleInit {
       { configurable: { thread_id: sessionId, hooks } },
     );
     return this.save(sessionId, this.fromGraph(sessionId, request.query, result));
+  }
+
+  private async queryFrom(
+    request: FactCheckRequest,
+    candidate: string,
+    hooks: StreamHooks,
+  ): Promise<string> {
+    const written = request.query.trim();
+    if (!request.image) return written;
+    hooks.onNode("lectura", "start");
+    try {
+      const claim = await this.llm.readClaim(request.image, candidate);
+      return written.length >= 3 ? `${written}. ${claim}` : claim;
+    } finally {
+      hooks.onNode("lectura", "done");
+    }
   }
 
   private async fromRule(

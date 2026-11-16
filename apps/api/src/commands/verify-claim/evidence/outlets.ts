@@ -65,6 +65,17 @@ const NON_VERIFYING_DOMAINS = [
   "medium.com",
 ];
 
+export function isFactCheckUrl(url: string | null): boolean {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./, "").toLowerCase();
+    return (host === "larepublica.pe" || host.endsWith(".larepublica.pe")) && parsed.pathname.startsWith("/verificador");
+  } catch {
+    return false;
+  }
+}
+
 export function roleForUrl(url: string | null): "prueba" | "contraste" {
   const host = hostOf(url);
   if (!host) return "contraste";

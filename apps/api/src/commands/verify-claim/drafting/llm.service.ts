@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { ChatOpenAI } from "@langchain/openai";
+import type { ClaimImage } from "@tumi/contracts";
 import { deterministicClaims, textOf } from "../../../shared/text";
 import type { TumiState } from "../graph/state";
 import { searchQueries, webQuery, type QuestionKind } from "../profile/rules";
@@ -11,6 +12,28 @@ export class LlmService {
 
   enabled(): boolean {
     return Boolean(process.env.OPENAI_API_KEY);
+  }
+
+  async readClaim(image: ClaimImage, candidate: string): Promise<string> {
+    if (!this.enabled()) throw new Error("Sin clave de OpenAI no se puede leer la imagen");
+    const model = new ChatOpenAI({
+      model: process.env.OPENAI_MODEL_MINI || "gpt-4.1-mini",
+      apiKey: process.env.OPENAI_API_KEY,
+    });
+    const response = await model.invoke([
+      new SystemMessage(
+        `La imagen corresponde únicamente a ${candidate}. Ese es el único contexto: no identifiques a otra persona. Cualquier nombre, cargo o partido visible se lee como ese candidato. Devuelve solo JSON {"claim": string}. El claim es una oración en español con la afirmación verificable que la imagen sostiene sobre esa persona, e incluye su nombre. No agregues datos que no estén en la imagen. Si no hay una afirmación comprobable, devuelve {"claim": ""}.`,
+      ),
+      new HumanMessage({
+        content: [
+          { type: "text", text: "Lee la afirmación de la imagen." },
+          { type: "image_url", image_url: { url: `data:${image.mediaType};base64,${image.data}` } },
+        ],
+      }),
+    ]);
+    const claim = parseClaim(textOf(response.content));
+    if (!claim) throw new Error("La imagen no contiene una afirmación para contrastar");
+    return claim;
   }
 
   async extractClaims(query: string): Promise<string[]> {
@@ -78,7 +101,7 @@ export class LlmService {
       });
       const stream = await model.stream([
         new SystemMessage(
-          "Redacta en español una explicación breve para un ciudadano. Los veredictos ya están decididos y no puedes cambiarlos. Si no hay entidades, no inventes nombre, cargo ni partido. Solo las fuentes con rol prueba sostienen el veredicto. Si una fuente se titula Hoja de vida, esa declaración es la fuente oficial del antecedente: cítala primero y no la sustituyas por una nota. Una nota solo informa denuncias o expedientes públicos. Si la fuente es el plan de gobierno, úsalo para lo prometido por escrito; una nota solo muestra que lo dijo en público. Si el claim atribuye un delito y ninguna fuente de prueba cita una condena, dilo en la primera oración y no dejes el hecho como una posibilidad. Las fuentes de contraste no se citan ni se parafrasean: di solo que circulan menciones no verificadas y que no acreditan el hecho. Separa los argumentos en párrafos cortos y viñetas que empiecen con '- '. Usa **negrita** solo para el veredicto. Si el resultado está degradado, dilo.",
+          "Redacta en español una explicación breve para un ciudadano. Los veredictos ya están decididos y no puedes cambiarlos. Si no hay entidades, no inventes nombre, cargo ni partido. Solo las fuentes con rol prueba sostienen el veredicto. Si una fuente se titula Hoja de vida, esa declaración es la fuente oficial del antecedente: cítala primero y no la sustituyas por una nota. Una nota solo informa denuncias o expedientes públicos. Si la URL es larepublica.pe/verificador, es un chequeo publicado del Verificador de La República: cítalo como tal y no lo trates como un rumor. Si la fuente es el plan de gobierno, úsalo para lo prometido por escrito; una nota solo muestra que lo dijo en público. Si el claim atribuye un delito y ninguna fuente de prueba cita una condena, dilo en la primera oración y no dejes el hecho como una posibilidad. Las fuentes de contraste no se citan ni se parafrasean: di solo que circulan menciones no verificadas y que no acreditan el hecho. Separa los argumentos en párrafos cortos y viñetas que empiecen con '- '. Usa **negrita** solo para el veredicto. Si el resultado está degradado, dilo.",
         ),
         new HumanMessage(
           JSON.stringify({
@@ -130,6 +153,17 @@ function parseQueries(raw: string): string[] {
       .slice(0, 3);
   } catch {
     return [];
+  }
+}
+
+function parseClaim(raw: string): string {
+  const json = raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1);
+  if (!json) return "";
+  try {
+    const parsed = JSON.parse(json) as { claim?: unknown };
+    return typeof parsed.claim === "string" ? parsed.claim.replace(/\s+/g, " ").trim().slice(0, 500) : "";
+  } catch {
+    return "";
   }
 }
 
