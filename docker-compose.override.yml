@@ -1,0 +1,7 @@
+# Local only. Docker Compose loads this file automatically.
+# Dokploy runs `docker compose -f docker-compose.yml` and skips it,
+# so the web port stays inside the Docker network.
+services:
+  web:
+    ports:
+      - "${WEB_PORT:-8080}:80"

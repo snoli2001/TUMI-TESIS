@@ -93,8 +93,8 @@ services:
     build:
       context: .
       dockerfile: docker/web.Dockerfile
-    ports:
-      - "${WEB_PORT:-8080}:80"
+    expose:
+      - "80"
     depends_on:
       api:
         condition: service_healthy
