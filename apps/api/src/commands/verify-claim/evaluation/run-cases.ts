@@ -17,6 +17,8 @@ interface CaseReport {
   claim: string;
   expectedLabel: string;
   verdicts: string[];
+  evaluates: string;
+  criterion: string;
   status: "coincide" | "difiere" | "sin_candidato" | "error";
   actual: string | null;
   explanation: string | null;
@@ -48,9 +50,11 @@ async function main(): Promise<void> {
     cases: reports,
   };
   const output = join(process.cwd(), "evaluation-output", "tumi-20.json");
+  const report = join(process.cwd(), "evaluation-output", "tumi-20.md");
   await mkdir(dirname(output), { recursive: true });
   await writeFile(output, JSON.stringify(summary, null, 2));
-  console.log(JSON.stringify({ total: summary.total, scored: summary.scored, hits: summary.hits, output }));
+  await writeFile(report, reportMarkdown(summary));
+  console.log(JSON.stringify({ total: summary.total, scored: summary.scored, hits: summary.hits, output, report }));
 }
 
 async function runCase(item: VerificationCase): Promise<CaseReport> {
@@ -60,6 +64,8 @@ async function runCase(item: VerificationCase): Promise<CaseReport> {
     claim: item.claim,
     expectedLabel: item.expectedLabel,
     verdicts: item.verdicts,
+    evaluates: item.evaluates,
+    criterion: item.criterion,
   };
   if (!item.hojaVidaId) {
     return { ...baseReport, status: "sin_candidato", actual: null, explanation: null, citedReference: null, sources: [], error: null };
@@ -127,6 +133,101 @@ async function verify(
   };
   if (result.event === "error") throw new Error(payload.message ?? "No se pudo verificar");
   return { conclusion: payload.conclusion ?? "", verdicts: payload.verdicts ?? [], sources: payload.sources ?? [] };
+}
+
+function reportMarkdown(summary: {
+  total: number;
+  scored: number;
+  hits: number;
+  skipped: number;
+  errors: number;
+  cases: CaseReport[];
+}): string {
+  const when = new Intl.DateTimeFormat("es-PE", {
+    dateStyle: "long",
+    timeStyle: "short",
+    timeZone: "America/Lima",
+  }).format(new Date());
+  const agreement = summary.scored === 0 ? 0 : Math.round((summary.hits / summary.scored) * 1000) / 10;
+  const withReference = summary.cases.filter((item) => item.citedReference !== null);
+  const cited = withReference.filter((item) => item.citedReference).length;
+  const lines = [
+    "# Resultados de la evaluación",
+    "",
+    `Corrida del ${when}, contra \`${base}\`. Se contrastaron ${summary.total} afirmaciones ya etiquetadas a mano.`,
+    "",
+    "## Resumen",
+    "",
+    `El sistema coincidió con la etiqueta en ${summary.hits} de ${summary.scored} casos que pudieron juzgarse. El acuerdo es ${agreement} %.`,
+    "",
+    `- Casos corridos: ${summary.total}`,
+    `- Coincidencias: ${summary.hits}`,
+    `- Diferencias: ${summary.scored - summary.hits}`,
+    `- Sin candidato en el padrón: ${summary.skipped}`,
+    `- Errores de la corrida: ${summary.errors}`,
+    `- Cita de la página de referencia: ${cited} de ${withReference.length} casos que tenían una URL de contraste`,
+    "",
+    "Una coincidencia quiere decir que el veredicto del sistema está entre los veredictos aceptados para ese caso. La etiqueta escrita a mano a veces usa otras palabras, por ejemplo «opinión» o «conclusión inválida».",
+    "",
+    "## Tabla",
+    "",
+    "| Caso | Persona | Qué se pone a prueba | Etiqueta | Sistema | Acuerdo | Citó la referencia |",
+    "| --- | --- | --- | --- | --- | --- | --- |",
+    ...summary.cases.map((item) =>
+      `| ${item.id} | ${cell(item.person)} | ${cell(item.evaluates)} | ${cell(item.expectedLabel)} | ${cell(item.actual ?? item.status)} | ${agreementLabel(item.status)} | ${referenceLabel(item.citedReference)} |`,
+    ),
+    "",
+    "## Lectura de cada caso",
+    "",
+  ];
+  for (const item of summary.cases) {
+    lines.push(`### ${item.id}. ${item.person}`);
+    lines.push("");
+    lines.push(`Afirmación: ${item.claim}`);
+    lines.push("");
+    lines.push(`Se pone a prueba: ${item.evaluates}. Criterio: ${item.criterion}`);
+    lines.push("");
+    lines.push(`Etiqueta esperada: ${item.expectedLabel}. Veredicto del sistema: ${item.actual ?? "no hubo"}. ${agreementLabel(item.status)}.`);
+    if (item.citedReference !== null) {
+      lines.push("");
+      lines.push(
+        item.citedReference
+          ? "La respuesta citó la misma página usada como referencia del caso."
+          : "La respuesta no citó la página usada como referencia del caso.",
+      );
+    }
+    const reading = plain(item.explanation ?? item.error ?? "");
+    if (reading) {
+      lines.push("");
+      lines.push(reading);
+    }
+    lines.push("");
+  }
+  return lines.join("\n");
+}
+
+function agreementLabel(status: CaseReport["status"]): string {
+  if (status === "coincide") return "Coincide";
+  if (status === "difiere") return "No coincide";
+  if (status === "sin_candidato") return "Sin candidato";
+  return "Error";
+}
+
+function referenceLabel(value: boolean | null): string {
+  if (value === null) return "No aplica";
+  return value ? "Sí" : "No";
+}
+
+function cell(value: string): string {
+  return value.replace(/\|/g, "/").replace(/\s+/g, " ").trim();
+}
+
+function plain(value: string): string {
+  return value
+    .replace(/\*\*/g, "")
+    .replace(/^#+\s+/gm, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function samePage(left: string, right: string): boolean {
