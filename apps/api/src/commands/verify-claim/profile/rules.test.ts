@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { searchQueries, webQuery, claimFocus, mentionsClaim, decide, asksOtherOffice, officeQueries, contextQueries, claimsToJudge, isValueJudgment, sameCandidate, type OfficialProfile } from "./rules";
+import { searchQueries, webQuery, claimFocus, mentionsClaim, decide, asksOtherOffice, officeQueries, contextQueries, claimsToJudge, contrastTarget, isValueJudgment, sameCandidate, type OfficialProfile } from "./rules";
 
 const profile: OfficialProfile = {
   id: "hv-1",
@@ -108,6 +108,26 @@ describe("profile rules", () => {
     if (rule?.kind !== "verdict") return;
     assert.equal(rule.verdict, "verdadero");
     assert.equal(rule.source.title, "Plan de gobierno");
+  });
+
+  it("no cierra una sanción con la fila de estudios solo porque la frase dice abogado", () => {
+    const lawyer = {
+      ...profile,
+      name: "Elio Fernando Riera Garro",
+      shortName: "Elio Riera",
+      record: [{ kind: "study" as const, text: "ABOGADO, UNIVERSIDAD PERUANA DE CIENCIAS APLICADAS S.A.C., 2011" }],
+    };
+    const sentence =
+      "El abogado Elio Riera Garro ha sido suspendido por tres meses del ejercicio profesional por presentar información falsa";
+    const focus = contrastTarget(sentence);
+    assert.match(focus, /suspendido/);
+    assert.doesNotMatch(focus, /^El abogado/);
+    assert.equal(decide(focus, lawyer), null);
+    const degree = decide("Es abogado titulado", lawyer);
+    assert.equal(degree?.kind, "verdict");
+    if (degree?.kind !== "verdict") return;
+    assert.equal(degree.verdict, "verdadero");
+    assert.match(degree.source.snippet, /ABOGADO/);
   });
 
   it("deja pasar un hecho que la ficha no cubre", () => {

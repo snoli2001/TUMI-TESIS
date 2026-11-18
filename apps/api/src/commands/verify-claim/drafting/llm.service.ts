@@ -6,7 +6,7 @@ import { deterministicClaims, textOf } from "../../../shared/text";
 import type { TumiState } from "../graph/state";
 import { parseImageReading, type ImageReading } from "./image-reading";
 import { trustedOutlet } from "../evidence/outlets";
-import { searchQueries, webQuery, type QuestionKind } from "../profile/rules";
+import { contrastTarget, searchQueries, webQuery, type QuestionKind } from "../profile/rules";
 
 @Injectable()
 export class LlmService {
@@ -36,6 +36,28 @@ export class LlmService {
     const reading = parseImageReading(textOf(response.content));
     if (reading.kind === "other") throw new Error("La imagen no contiene una afirmación para contrastar");
     return reading;
+  }
+
+  async focusContrast(query: string, name: string): Promise<string> {
+    const fallback = contrastTarget(query);
+    if (!this.enabled()) return fallback;
+    try {
+      const model = new ChatOpenAI({
+        model: process.env.OPENAI_MODEL_MINI || "gpt-5.4-mini",
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+      const response = await model.invoke([
+        new SystemMessage(
+          'Devuelve solo JSON {"target": string}. El target es el hecho que hay que contrastar, en español, sin agregar datos. Un oficio o una profesión solo identifica a la persona cuando la oración afirma otra cosa, como una sanción, una renuncia, un cargo, una promesa o un delito. Si la oración trata de esa profesión o de los estudios, el target conserva ese dato.',
+        ),
+        new HumanMessage(`${name}. ${query}`),
+      ]);
+      const target = parseTarget(textOf(response.content));
+      return contrastTarget(target.length >= 12 ? target : query);
+    } catch (error) {
+      this.logger.warn(`El dato a contrastar quedó en la frase: ${error instanceof Error ? error.message : error}`);
+      return fallback;
+    }
   }
 
   async extractClaims(query: string): Promise<string[]> {
@@ -103,7 +125,7 @@ export class LlmService {
       });
       const stream = await model.stream([
         new SystemMessage(
-          "Redacta en español una explicación breve para un ciudadano. Los veredictos ya están decididos y no puedes cambiarlos. Si no hay entidades, no inventes nombre, cargo ni partido. Solo las fuentes con rol prueba sostienen el veredicto. Si una fuente se titula Hoja de vida, esa declaración es la fuente oficial del antecedente: cítala primero y no la sustituyas por una nota. Una nota solo informa denuncias o expedientes públicos. RPP, El Comercio, La República, Agencia Andina, OjoPúblico, Convoca, IDL-Reporteros y el IPE son fuentes de prueba: lo que publican sobre el hecho se toma como cierto. Cita cada uno de esos medios que habla del hecho, con su nombre, y no te quedes con una sola nota. PerúCheck y larepublica.pe/verificador son chequeos publicados: cítalos por su nombre y no los trates como un rumor. Si la fuente es el plan de gobierno, úsalo para lo prometido por escrito; una nota solo muestra que lo dijo en público. Si el padrón muestra el cargo al que postula en 2026, ese es el dato oficial de la candidatura. Si una nota explica que no puede postular al cargo afirmado porque la reelección inmediata está prohibida, incluye ese motivo y cita el medio. Haber ocupado el cargo antes no convierte en verdadero el claim de que lo será ahora. Si la fuente es una norma, explica qué exige o permite, con su nombre y su página, y menciona la edición cuando el fragmento la trae. Si un medio de prueba publica que la persona fue ministra, renunció, anunció una candidatura o presentó un proyecto, dilo aunque la hoja de vida no lo declare. Si el veredicto es falso porque el cargo fue en otro gobierno, porque la persona sí ocupó el cargo que niega, o porque una promesa no demuestra la entrega, dilo en la primera oración. La unión civil no matrimonial no es matrimonio igualitario: si el veredicto es falso por esa diferencia, explícala. Si el veredicto es no verificable porque la frase es un juicio de valor o una metáfora, como «el mejor» o «potencia mundial», dilo en la primera oración y no la trates como un hecho medido. El Código Penal no demuestra que la persona cometió el delito. El Código Procesal Penal no convierte una denuncia en condena. Si el claim atribuye un delito y ninguna fuente de prueba cita una condena, dilo en la primera oración y no dejes el hecho como una posibilidad. Las fuentes de contraste no se citan ni se parafrasean: di solo que circulan menciones no verificadas y que no acreditan el hecho. Separa los argumentos en párrafos cortos y viñetas que empiecen con '- '. Usa **negrita** solo para el veredicto. Si el resultado está degradado, dilo.",
+          "Redacta en español una explicación breve para un ciudadano. Los veredictos ya están decididos y no puedes cambiarlos. Si no hay entidades, no inventes nombre, cargo ni partido. Solo las fuentes con rol prueba sostienen el veredicto. No digas que un medio confirmó el hecho si esa nota no está en la lista de fuentes, y no reescribas la consulta como si fuera una fuente. Si una fuente se titula Hoja de vida, esa declaración es la fuente oficial del antecedente: cítala primero y no la sustituyas por una nota. Una nota solo informa denuncias o expedientes públicos. RPP, El Comercio, La República, Agencia Andina, OjoPúblico, Convoca, IDL-Reporteros y el IPE son fuentes de prueba: lo que publican sobre el hecho se toma como cierto. Cita cada uno de esos medios que habla del hecho, con su nombre, y no te quedes con una sola nota. PerúCheck y larepublica.pe/verificador son chequeos publicados: cítalos por su nombre y no los trates como un rumor. Si la fuente es el plan de gobierno, úsalo para lo prometido por escrito; una nota solo muestra que lo dijo en público. Si el padrón muestra el cargo al que postula en 2026, ese es el dato oficial de la candidatura. Si una nota explica que no puede postular al cargo afirmado porque la reelección inmediata está prohibida, incluye ese motivo y cita el medio. Haber ocupado el cargo antes no convierte en verdadero el claim de que lo será ahora. Si la fuente es una norma, explica qué exige o permite, con su nombre y su página, y menciona la edición cuando el fragmento la trae. Si un medio de prueba publica que la persona fue ministra, renunció, anunció una candidatura o presentó un proyecto, dilo aunque la hoja de vida no lo declare. Si el veredicto es falso porque el cargo fue en otro gobierno, porque la persona sí ocupó el cargo que niega, o porque una promesa no demuestra la entrega, dilo en la primera oración. La unión civil no matrimonial no es matrimonio igualitario: si el veredicto es falso por esa diferencia, explícala. Si el veredicto es no verificable porque la frase es un juicio de valor o una metáfora, como «el mejor» o «potencia mundial», dilo en la primera oración y no la trates como un hecho medido. El Código Penal no demuestra que la persona cometió el delito. El Código Procesal Penal no convierte una denuncia en condena. Si el claim atribuye un delito y ninguna fuente de prueba cita una condena, dilo en la primera oración y no dejes el hecho como una posibilidad. Las fuentes de contraste no se citan ni se parafrasean: di solo que circulan menciones no verificadas y que no acreditan el hecho. Separa los argumentos en párrafos cortos y viñetas que empiecen con '- '. Usa **negrita** solo para el veredicto. Si el resultado está degradado, dilo.",
         ),
         new HumanMessage(
           JSON.stringify({
@@ -140,6 +162,17 @@ export class LlmService {
       onToken(text);
       return text;
     }
+  }
+}
+
+function parseTarget(raw: string): string {
+  const json = raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1);
+  if (!json) return "";
+  try {
+    const parsed = JSON.parse(json) as { target?: unknown };
+    return typeof parsed.target === "string" ? parsed.target.trim() : "";
+  } catch {
+    return "";
   }
 }
 

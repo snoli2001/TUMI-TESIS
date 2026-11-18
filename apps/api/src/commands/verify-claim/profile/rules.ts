@@ -154,6 +154,16 @@ function claimedOffice(query: string): string | null {
   return OFFICES.find((item) => folded.includes(item)) ?? null;
 }
 
+const IDENTIFYING_TITLE =
+  /^(?:el|la|los|las)\s+(?:abogad[oa]s?|ingenier[oa]s?|medic[oa]s?|profesor(?:a|es)?|economistas?)\s+/i;
+
+export function contrastTarget(query: string): string {
+  const text = query.trim();
+  const withoutTitle = text.replace(IDENTIFYING_TITLE, "").trim();
+  if (withoutTitle.length < 12 || withoutTitle === text) return text;
+  return withoutTitle;
+}
+
 export function questionKind(query: string): QuestionKind {
   const folded = fold(query);
   if (CRIME_WORDS.some((word) => folded.includes(word)) || /penal|antecedente|proceso|sentencia|condena|\bdelito\b/.test(folded)) {

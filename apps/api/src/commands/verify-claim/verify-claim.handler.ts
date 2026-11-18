@@ -8,15 +8,18 @@ import { getPrisma } from "@tumi/database";
 import { DecisionsService } from "./decisions/decisions.service";
 import { JneSearchService } from "./evidence/jne-search.service";
 import { VectorSearchService } from "./evidence/vector-search.service";
+import { isSocialUrl, trustedOutlet } from "./evidence/outlets";
 import { WebSearchService } from "./evidence/web-search.service";
 import { buildGraph } from "./graph/fact-check.graph";
-import { bestMatch, leadingNames, mentions, namesInText } from "./graph/mentions";
+import { bestMatch, evidenceFits, leadingNames, mentions, namesInText } from "./graph/mentions";
 import type { AgentDeps, EvidenceItem, StreamHooks, TumiState } from "./graph/state";
 import { loadProfile } from "./profile/load-profile";
 import {
   asksOtherOffice,
   decide,
   contextQueries,
+  mentionsClaim,
+  sameCandidate,
   isValueJudgment,
   officeQueries,
   officialReading,
@@ -29,7 +32,6 @@ import {
 import { readingLine, type ImageKind } from "./drafting/image-reading";
 import { LlmService } from "./drafting/llm.service";
 import { statementAppears } from "./evidence/attribution";
-import { isSocialUrl } from "./evidence/outlets";
 import { statutesFor } from "./evidence/statutes";
 
 @Injectable()
@@ -69,13 +71,17 @@ export class VerifyClaimHandler implements OnModuleInit {
           withReading(await this.fromStatements(sessionId, query, reading.claims, profile, hooks), reading.line),
         );
       }
-      const rule = decide(query, profile);
-      const kind = questionKind(query);
-      const opensNews = asksOtherOffice(query, profile.office);
+      const focus = await this.llm.focusContrast(query, profile.name);
+      const rule = decide(focus, profile);
+      const kind = questionKind(focus);
+      const opensNews = asksOtherOffice(focus, profile.office);
       if (reading.imageKind !== "statement" && rule && kind !== "criminal" && kind !== "proposal" && !opensNews) {
-        return this.save(sessionId, withReading(await this.fromRule(sessionId, query, profile, rule, hooks), reading.line));
+        return this.save(
+          sessionId,
+          withReading(await this.fromRule(sessionId, query, focus, profile, rule, hooks), reading.line),
+        );
       }
-      const result = await buildGraph(this.deps(profile, query), this.checkpointer).invoke(
+      const result = await buildGraph(this.deps(profile, focus), this.checkpointer).invoke(
         {
           query,
           sessionId,
@@ -228,6 +234,7 @@ export class VerifyClaimHandler implements OnModuleInit {
   private async fromRule(
     sessionId: string,
     query: string,
+    focus: string,
     profile: OfficialProfile,
     rule: ProfileRule,
     hooks: StreamHooks,
@@ -238,6 +245,8 @@ export class VerifyClaimHandler implements OnModuleInit {
       return this.toResult(sessionId, query, rule.message, "no_verificable", null, [], [entity]);
     }
     const source = sourceOf(profile, rule);
+    const press = await this.pressSources(focus, profile);
+    const sources = mergeSources([[source], press]);
     const verdict: ClaimVerdict = {
       claim: query,
       verdict: rule.verdict,
@@ -245,7 +254,7 @@ export class VerifyClaimHandler implements OnModuleInit {
       degraded: false,
       explanation: "",
       decisions: [],
-      sources: [source],
+      sources,
     };
     const state: TumiState = {
       query,
@@ -254,7 +263,7 @@ export class VerifyClaimHandler implements OnModuleInit {
       entities: [entity],
       claims: [query],
       queries: [],
-      evidence: [source],
+      evidence: sources,
       verdicts: [verdict],
       conclusion: "",
       degraded: false,
@@ -272,7 +281,29 @@ export class VerifyClaimHandler implements OnModuleInit {
       hooks.onToken(conclusion);
     }
     hooks.onNode("explicacion", "done");
-    return this.toResult(sessionId, query, conclusion, rule.verdict, rule.confidence, [source], [entity]);
+    return this.toResult(sessionId, query, conclusion, rule.verdict, rule.confidence, sources, [entity]);
+  }
+
+  private async pressSources(focus: string, profile: OfficialProfile): Promise<SourceRef[]> {
+    const query = webQuery(profile.shortName, focus, profile.name);
+    try {
+      const found = await this.web.search([query, focus], { name: profile.name, party: profile.party });
+      return found.filter((item) => this.keepsPress(focus, profile, item));
+    } catch (error) {
+      this.logger.warn(`La prensa no se consultó: ${error instanceof Error ? error.message : error}`);
+      return [];
+    }
+  }
+
+  private keepsPress(focus: string, profile: OfficialProfile, item: EvidenceItem): boolean {
+    if (item.role === "contraste") return false;
+    if (item.origin === "tavily") {
+      const named = sameCandidate(item.title, item.snippet, { name: profile.name, party: profile.party });
+      const onClaim =
+        Boolean(trustedOutlet(item.url)) && mentionsClaim(item.title, item.snippet, focus, profile.name);
+      if (!named && !onClaim) return false;
+    }
+    return evidenceFits([focus], item, profile.name.split(/\s+/));
   }
 
   private fromGraph(
