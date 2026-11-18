@@ -95,7 +95,7 @@ export class LlmService {
       const catalog = STATUTES.map((statute) => `${statute.id}: ${statute.title}`).join("; ");
       const response = await model.invoke([
         new SystemMessage(
-          `Devuelve solo JSON {"queries": string[], "statutes": string[]}. Máximo 3 consultas. Cada consulta incluye el nombre de la persona y busca el hecho a contrastar. Si la frase niega un hecho, incluye también una consulta del hecho positivo. Si afirma otro cargo, busca ese cargo. statutes tiene como mucho 2 ids de este catálogo, y solo si una norma ayuda a explicar la regla: ${catalog}. Si el caso no trata de una regla, statutes es []. No inventes datos que no estén en la afirmación.`,
+          `Devuelve solo JSON {"queries": string[], "statutes": string[]}. Máximo 3 consultas. Cada consulta incluye el nombre de la persona y el hecho distintivo, con la cantidad si la frase la trae. No uses el oficio si la frase afirma otra cosa. Si la frase niega un hecho, incluye también una consulta del hecho positivo. Si afirma otro cargo, busca ese cargo. statutes tiene como mucho 2 ids de este catálogo, y solo si una norma ayuda a explicar la regla: ${catalog}. Si el caso no trata de una regla, statutes es []. No inventes datos que no estén en la afirmación.`,
         ),
         new HumanMessage(`${name}. ${query}`),
       ]);

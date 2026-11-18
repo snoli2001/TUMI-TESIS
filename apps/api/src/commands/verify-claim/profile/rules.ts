@@ -158,6 +158,10 @@ function claimedOffice(query: string): string | null {
 const IDENTIFYING_TITLE =
   /^(?:el|la|los|las)\s+(?:abogad[oa]s?|ingenier[oa]s?|medic[oa]s?|profesor(?:a|es)?|economistas?)\s+/i;
 
+const PROFESSION = /^(?:abogad[oa]s?|ingenier[oa]s?|medic[oa]s?|profesor(?:a|es)?|economistas?)$/;
+
+const SEARCH_NOISE = new Set(["sido", "siendo", "estaba", "estaban", "fueron", "habia", "tiene", "tienen"]);
+
 export function contrastTarget(query: string): string {
   const text = query.trim();
   const withoutTitle = text.replace(IDENTIFYING_TITLE, "").trim();
@@ -317,10 +321,25 @@ export function searchList(name: string, focus: string, planned: string[]): stri
 }
 
 export function webQuery(shortName: string, query: string, fullName: string): string {
-  const fact = factTokens(query, fullName).slice(0, 8).join(" ");
+  const fact = searchWords(query, fullName).slice(0, 8).join(" ");
   const year = /postul|candidat|alcald|2026/.test(fold(query)) ? "2026" : "";
   const country = /\bperu\b/.test(fold(query)) ? "Perú" : "";
   return [shortName, fact, country, year].filter(Boolean).join(" ").slice(0, 180);
+}
+
+function searchWords(query: string, name: string): string[] {
+  const skipped = new Set(fold(name).split(/\s+/).filter((word) => word.length > 2));
+  const seen = new Set<string>();
+  const tokens: string[] = [];
+  for (const word of contrastTarget(query).match(/\p{L}+|\d+(?:[.,]\d+)*/gu) ?? []) {
+    const folded = fold(word);
+    if (FILLER.has(folded) || SEARCH_NOISE.has(folded) || skipped.has(folded) || seen.has(folded)) continue;
+    if (!/^\d/.test(folded) && folded.length < 4) continue;
+    seen.add(folded);
+    tokens.push(word);
+  }
+  const fact = tokens.filter((word) => !PROFESSION.test(fold(word)));
+  return fact.length > 0 ? fact : tokens;
 }
 
 export function claimFocus(query: string, name: string): string {

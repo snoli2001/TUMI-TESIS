@@ -19,7 +19,7 @@ A sentence that is itself about the degree or the job still uses that row as evi
 
 `planQueries` returns up to three queries and at most two statute ids from the catalog. Each query includes the person's name and looks for the fact. If the sentence denies a fact, the plan also searches the positive fact. If it claims another office, the plan searches that office. An id outside the catalog is dropped.
 
-The short name plus the fact to contrast is always the first press query, even when the agent returns other queries. Do not add a phrase for a particular case.
+The short name plus the distinctive fact is always the first press query, including the quantity when the sentence has one. A profession word is left out when the sentence asserts something else. Do not add a phrase for a particular case.
 
 ## A statute explains the rule
 

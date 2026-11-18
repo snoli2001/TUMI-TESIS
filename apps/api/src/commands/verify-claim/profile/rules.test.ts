@@ -202,6 +202,16 @@ describe("profile rules", () => {
     assert.equal(backup.length, 1);
     assert.match(backup[0], /Elio Riera/);
     assert.match(backup[0], /suspendido/);
+    assert.match(backup[0], /tres/);
+    assert.doesNotMatch(backup[0], /abogado/i);
+    const consulta = webQuery(
+      "Elio Riera",
+      "El abogado Elio Riera Garro ha sido suspendido por tres meses del ejercicio profesional",
+      "Elio Fernando Riera Garro",
+    );
+    assert.match(consulta, /^Elio Riera /);
+    assert.match(consulta, /suspendido tres meses/);
+    assert.doesNotMatch(consulta, /abogado/i);
     const listed = searchList("Elio Riera", "ha sido suspendido por tres meses del ejercicio profesional", [
       "código de ética suspensión",
     ]);
