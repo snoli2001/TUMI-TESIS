@@ -91,7 +91,7 @@ export class VectorSearchService {
   async searchStatutes(query: string, ids: string[]): Promise<EvidenceItem[]> {
     const filter = statuteFilter(ids);
     if (!filter) return [];
-    return this.queryVectors(query, filter, 3);
+    return this.queryVectors(query, filter, 4);
   }
 
   private async conEnlace(items: EvidenceItem[]): Promise<EvidenceItem[]> {

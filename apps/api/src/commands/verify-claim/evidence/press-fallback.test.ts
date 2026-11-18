@@ -87,6 +87,29 @@ test("una página de tema y un no encontré no entran como prueba", () => {
   );
 });
 
+test("un pdf del Poder Judicial entra como prueba", () => {
+  const url = "https://www.pj.gob.pe/resoluciones/sentencia.pdf";
+  const text = "La sala confirmó la suspensión del ejercicio profesional por tres meses. PJ";
+  const start = text.lastIndexOf("PJ");
+  const items = pressItems([
+    {
+      type: "message",
+      content: [
+        {
+          type: "output_text",
+          text,
+          annotations: [
+            { type: "url_citation", url, title: "Resolución", start_index: start, end_index: start + 2 },
+          ],
+        },
+      ],
+    },
+  ]);
+  assert.equal(items.length, 1);
+  assert.equal(items[0]?.url, url);
+  assert.equal(items[0]?.role, "prueba");
+});
+
 test("una URL de la búsqueda sin cita no entra", () => {
   assert.deepEqual(
     pressItems([{ type: "web_search_call", action: { sources: [{ url: andina }] } }]),

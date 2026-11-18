@@ -36,6 +36,10 @@
     }
     @if (draft() || result()) {
       <article class="panel answer">
+        @if (contrastedDatum(); as dato) {
+          <p class="eyebrow">Dato contrastado</p>
+          <p>{{ dato }}</p>
+        }
         <div class="prose" [innerHTML]="asHtml(draft() || result()?.conclusion || '')"></div>
       </article>
     }

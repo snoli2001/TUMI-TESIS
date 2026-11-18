@@ -47,6 +47,10 @@
             </span>
           </p>
         }
+        @if (contrastedDatum(); as dato) {
+          <p class="eyebrow">Dato contrastado</p>
+          <p>{{ dato }}</p>
+        }
         <div class="prose" [innerHTML]="asHtml(draft() || result()?.conclusion || '')"></div>
       </article>
     }
@@ -117,6 +121,23 @@
           <a [href]="source.url" target="_blank" rel="noreferrer">Abrir fuente</a>
         }
       </article>
+    }
+    @if (reference().length) {
+      <h2 class="norma">La norma</h2>
+      <p class="muted">Explica la regla. No acredita este caso.</p>
+      @for (source of reference(); track source.id) {
+        <article>
+          @if (source.url) {
+            <a [href]="source.url" target="_blank" rel="noreferrer">{{ documentName(source.title) }}</a>
+          } @else {
+            <strong>{{ documentName(source.title) }}</strong>
+          }
+          <p>{{ source.snippet }}</p>
+          @if (source.pagina !== null) {
+            <p class="muted">página {{ source.pagina }}</p>
+          }
+        </article>
+      }
     }
     <h2 class="circula">Circula también</h2>
     <p class="muted">Páginas no verificadas. Muestran si la afirmación se está difundiendo y si alguien la afirma o la desacredita.</p>

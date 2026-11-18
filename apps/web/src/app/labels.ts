@@ -120,6 +120,8 @@ export function citationLabel(source: SourceRef): string {
   if (isRepublicaCheck(source.url)) return "Verificador LR";
   const outlet = outletLabel(source.url);
   if (outlet) return outlet;
+  const portal = stateLabel(source.url);
+  if (portal) return portal;
   const network = socialNetwork(source.url);
   if (network) return `Publicación en ${network}`;
   if (source.origin === "tavily") return "Medio";
@@ -142,7 +144,7 @@ export function primaryCitation(sources: SourceRef[]): SourceRef | null {
 
 function citationRank(source: SourceRef): number {
   if (isFactCheck(source.url)) return 0;
-  if (outletLabel(source.url)) return 1;
+  if (outletLabel(source.url) || stateLabel(source.url)) return 1;
   if (source.id.startsWith("oficial-")) return 2;
   if (source.title === "Hoja de vida") return 3;
   if (source.pagina !== null && source.codigoExpediente) return 4;
@@ -152,8 +154,7 @@ function citationRank(source: SourceRef): number {
 
 function citationKey(source: SourceRef): string {
   if (socialNetwork(source.url) || isFactCheck(source.url)) return source.url ?? source.id;
-  const outlet = outletLabel(source.url);
-  if (outlet) return outlet;
+  if (source.url && (outletLabel(source.url) || stateLabel(source.url))) return source.url;
   if (source.title === "Hoja de vida") return "hoja";
   if (source.title === "Plan de gobierno" || (source.pagina !== null && source.codigoExpediente)) return "plan";
   if (source.origin === "qdrant") return `doc:${documentName(source.title)}`;
@@ -226,6 +227,11 @@ function citedPiece(source: SourceRef): string {
   if (label === "Verificador LR") return "el Verificador LR";
   if (label === "Agencia Andina") return "la Agencia Andina";
   if (label === "IPE") return "el IPE";
+  if (label === "Poder Judicial") return "el Poder Judicial";
+  if (label === "Tribunal Constitucional") return "el Tribunal Constitucional";
+  if (label === "Ministerio Público") return "el Ministerio Público";
+  if (label === "Contraloría") return "la Contraloría";
+  if (label === "El Peruano") return "El Peruano";
   return label;
 }
 
@@ -249,18 +255,50 @@ const OUTLETS: Array<{ domain: string; label: string }> = [
   { domain: "perucheck.pe", label: "PerúCheck" },
   { domain: "rpp.pe", label: "RPP" },
   { domain: "elcomercio.pe", label: "El Comercio" },
+  { domain: "gestion.pe", label: "Gestión" },
+  { domain: "peru21.pe", label: "Perú21" },
   { domain: "larepublica.pe", label: "La República" },
   { domain: "andina.pe", label: "Agencia Andina" },
   { domain: "ojo-publico.com", label: "OjoPúblico" },
   { domain: "convoca.pe", label: "Convoca" },
   { domain: "idl-reporteros.pe", label: "IDL-Reporteros" },
   { domain: "ipe.org.pe", label: "IPE" },
+  { domain: "latina.pe", label: "Latina" },
+  { domain: "americatv.com.pe", label: "América TV" },
+  { domain: "canaln.pe", label: "Canal N" },
+  { domain: "panamericana.pe", label: "Panamericana" },
+  { domain: "exitosanoticias.pe", label: "Exitosa" },
+  { domain: "willax.pe", label: "Willax" },
+  { domain: "atv.pe", label: "ATV" },
+  { domain: "tvperu.gob.pe", label: "TVPerú" },
+  { domain: "expreso.com.pe", label: "Expreso" },
+  { domain: "diariocorreo.pe", label: "Correo" },
+  { domain: "correo.pe", label: "Correo" },
+];
+
+const STATE_PORTALS: Array<{ domain: string; label: string }> = [
+  { domain: "pj.gob.pe", label: "Poder Judicial" },
+  { domain: "tc.gob.pe", label: "Tribunal Constitucional" },
+  { domain: "mpfn.gob.pe", label: "Ministerio Público" },
+  { domain: "jne.gob.pe", label: "JNE" },
+  { domain: "contraloria.gob.pe", label: "Contraloría" },
+  { domain: "indecopi.gob.pe", label: "Indecopi" },
+  { domain: "sunat.gob.pe", label: "Sunat" },
+  { domain: "servir.gob.pe", label: "Servir" },
+  { domain: "elperuano.pe", label: "El Peruano" },
+  { domain: "gob.pe", label: "gob.pe" },
 ];
 
 function outletLabel(url: string | null): string | null {
   const host = hostOf(url);
   if (!host) return null;
   return OUTLETS.find((item) => host === item.domain || host.endsWith(`.${item.domain}`))?.label ?? null;
+}
+
+function stateLabel(url: string | null): string | null {
+  const host = hostOf(url);
+  if (!host) return null;
+  return STATE_PORTALS.find((item) => host === item.domain || host.endsWith(`.${item.domain}`))?.label ?? null;
 }
 
 function isRepublicaCheck(url: string | null): boolean {

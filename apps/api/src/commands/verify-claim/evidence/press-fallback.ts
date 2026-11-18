@@ -1,5 +1,5 @@
 import type { EvidenceItem } from "../graph/state";
-import { preferReporting, roleForUrl, trustedOutlet } from "./outlets";
+import { preferReporting, roleForUrl, statePortal, trustedOutlet } from "./outlets";
 
 interface CitedSpan {
   type?: string;
@@ -64,9 +64,11 @@ function articleUrl(url: string): string | null {
   parsed.searchParams.delete("utm_source");
   parsed.searchParams.delete("outputType");
   const path = parsed.pathname.toLowerCase();
-  if (path.endsWith(".pdf") || /\/(tag|autor|opinion|archivo)\//.test(path) || /\/noticias\/[^/]+\/?$/.test(path)) return null;
   const cleaned = parsed.toString();
-  return trustedOutlet(cleaned) ? cleaned : null;
+  const official = statePortal(cleaned);
+  if (path.endsWith(".pdf")) return official ? cleaned : null;
+  if (/\/(tag|autor|opinion|archivo)\//.test(path) || /\/noticias\/[^/]+\/?$/.test(path)) return null;
+  return trustedOutlet(cleaned) || official ? cleaned : null;
 }
 
 function isSearchApology(snippet: string): boolean {

@@ -11,19 +11,21 @@ The agent plans the searches, chooses the verdict, and writes the explanation. T
 
 ## The fact to check is not the person's title
 
-An agent names the fact being contrasted. A profession word only identifies the person when the sentence asserts something else. `contrastTarget` removes a leading title (`El abogado …`) so that word cannot match the education row by itself.
+`focus` is the fact being contrasted. It is stored on the graph and on the result. Search, ranking, the judge, and the explanation use that fact. A profession word only identifies the person when the sentence asserts something else. `contrastTarget` removes a leading title (`El abogado …`) so that word cannot match the education row by itself.
+
+The citizen still sees the original sentence as the claim. The screen shows `focus` as «Dato contrastado» when it differs from that sentence.
 
 A sentence that is itself about the degree or the job still uses that row as evidence. The hoja does not close the verdict or write the citizen's sentence.
 
-## The agent plans the search
+## One agent names the fact, another writes the press query
 
-`planQueries` returns up to three queries and at most two statute ids from the catalog. Each query includes the person's name and looks for the fact. If the sentence denies a fact, the plan also searches the positive fact. If it claims another office, the plan searches that office. An id outside the catalog is dropped.
+`focusContrast` names the fact. `pressQueries` then writes at most two search strings for that fact. Those strings go to Tavily as written, and to OpenAI web search only if Tavily is unavailable. The code already sets Peru, advanced depth, and the domains, so the query does not contain `site:`, an outlet name, or instructions. Each query is one short search: the name plus the distinctive fact, including the quantity, date, or office when the fact has them. A profession word stays out when the fact asserts something else. If the fact denies an event, the second query searches the positive event. The token query is used only when this agent returns nothing.
 
-The short name plus the distinctive fact is always the first press query, including the quantity when the sentence has one. A profession word is left out when the sentence asserts something else. Do not add a phrase for a particular case.
+`planQueries` does not write the press query. It returns up to two state-portal queries, at most two statute ids, and a legal query. `stateQueries` is empty unless the fact is about a sentence, a case, a vacancy, a resolution, an administrative sanction, or a public office or contract. An id outside the catalog is dropped.
 
 ## A statute explains the rule
 
-A statute is reference for the explanation. It says what the law allows or requires, and it does not prove that this person did the act. `statuteQuery` uses the statute the agent chose, not the person's name. Those chunks use role `referencia`. The judge only sees role `prueba`.
+A statute is reference. It says what the law allows or requires, and it does not prove that this person did the act. `legalQuery` is an abstract legal question without the person's name. `statuteQuery` is the backup. Those chunks use role `referencia` and reach the judge as `referenciaNormativa`, separate from proof. The verdict sources stay role `prueba`. A state document is proof of what that document records.
 
 ## One sentence, one verdict
 
@@ -33,6 +35,6 @@ The judge and the explainer share `CLAIM_POLICY`: use only the attached sources,
 
 ## A proof outlet that states the fact stays proof
 
-`evidenceFits` keeps a content word of three or four letters when it is not filler and not a bare verb. Do not send that note to contraste.
+`evidenceFits` and `mentionsClaim` match a stem of five letters, so `suspendido` meets `suspenden`. They compare the note with `focus`, so a note that only shares a title word does not stay. Do not send a note that states the fact to contraste.
 
 Proof outlets are RPP, El Comercio, La República, Agencia Andina, OjoPúblico, Convoca, IDL-Reporteros, PerúCheck, and IPE. OpenAI web search only supplies a cited sentence and a URL. It does not supply the article body, and an OpenAI shell skill does not replace these rules.

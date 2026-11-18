@@ -213,10 +213,10 @@ describe("profile rules", () => {
     assert.match(consulta, /suspendido tres meses/);
     assert.doesNotMatch(consulta, /abogado/i);
     const listed = searchList("Elio Riera", "ha sido suspendido por tres meses del ejercicio profesional", [
-      "código de ética suspensión",
+      "Elio Riera suspendido tres meses ejercicio profesional",
     ]);
-    assert.equal(listed[0], backup[0]);
-    assert.equal(listed[1], "código de ética suspensión");
+    assert.deepEqual(listed, ["Elio Riera suspendido tres meses ejercicio profesional"]);
+    assert.deepEqual(searchList("Elio Riera", "ha sido suspendido por tres meses del ejercicio profesional", []), backup);
     assert.deepEqual(
       claimsToJudge("Daniel Urresti fue ministro del Interior durante el gobierno de Alejandro Toledo.", [
         "Daniel Urresti fue ministro del Interior",
@@ -287,6 +287,18 @@ describe("profile rules", () => {
     assert.equal(
       mentionsClaim("RPP", "Crece la tasa de desempleo en España.", foco, "Daniel Belizario Urresti Elera"),
       false,
+    );
+  });
+
+  it("reconoce la suspensión aunque el titular use otro tiempo del verbo", () => {
+    assert.equal(
+      mentionsClaim(
+        "Suspenden a Elio Riera por faltar a la verdad",
+        "No podrá ejercer la profesión por 3 meses.",
+        "ha sido suspendido por tres meses del ejercicio profesional",
+        "Elio Riera",
+      ),
+      true,
     );
   });
 });

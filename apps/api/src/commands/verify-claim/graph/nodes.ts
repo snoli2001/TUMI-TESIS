@@ -1,6 +1,6 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { EntityRef } from "@tumi/contracts";
-import { trustedOutlet } from "../evidence/outlets";
+import { statePortal, trustedOutlet } from "../evidence/outlets";
 import { claimsToJudge, mentionsClaim, questionKind, sameCandidate } from "../profile/rules";
 import type { AgentDeps, StreamHooks, TumiState } from "./state";
 import { coverOutlets, evidenceFits, leadingNames } from "./mentions";
@@ -57,9 +57,18 @@ export async function investigate(
   const stream = hooks(config);
   stream.onNode("investigacion", "start");
   const name = state.entities[0]?.nombre ?? "";
-  const plan = await deps.planQueries(questionKind(state.query), name, state.query);
+  const subject = state.focus.trim() || state.query;
+  const [press, plan] = await Promise.all([
+    deps.pressQueries(name, subject),
+    deps.planQueries(questionKind(subject), name, subject),
+  ]);
   stream.onNode("investigacion", "done");
-  return { queries: plan.queries, statutes: plan.statutes };
+  return {
+    queries: press,
+    stateQueries: plan.stateQueries,
+    statutes: plan.statutes,
+    legalQuery: plan.legalQuery,
+  };
 }
 
 export async function retrieve(
@@ -76,6 +85,9 @@ export async function retrieve(
     state.sessionId,
     state.queries,
     state.statutes,
+    state.focus,
+    state.stateQueries,
+    state.legalQuery,
   );
   const reference = found.filter((item) => item.role === "referencia");
   const caseItems = found.filter((item) => item.role !== "referencia");
@@ -84,20 +96,20 @@ export async function retrieve(
     ...state.claims.flatMap(leadingNames),
   ];
   const identity = state.entities[0];
+  const subject = state.focus.trim() || state.query;
   const proof = caseItems.filter((item) => {
     if (item.role === "contraste") return false;
     if (item.origin === "tavily" && identity) {
       const named = sameCandidate(item.title, item.snippet, { name: identity.nombre, party: identity.partido });
-      const onClaim =
-        Boolean(trustedOutlet(item.url)) &&
-        mentionsClaim(item.title, item.snippet, `${state.query} ${state.claims.join(" ")}`, identity.nombre);
+      const official = Boolean(trustedOutlet(item.url) || statePortal(item.url));
+      const onClaim = official && mentionsClaim(item.title, item.snippet, subject, identity.nombre);
       if (!named && !onClaim) return false;
     }
-    return evidenceFits(state.claims, item, names);
+    return evidenceFits(state.focus.trim() ? [subject] : state.claims, item, names);
   });
   const contrast = caseItems.filter((item) => !proof.includes(item));
-  const ranked = await deps.rerank(state.claims, proof);
-  const kept = coverOutlets(ranked, proof, trustedOutlet);
+  const ranked = await deps.rerank(state.focus.trim() ? [subject] : state.claims, proof);
+  const kept = coverOutlets(ranked, proof, (url) => trustedOutlet(url) ?? statePortal(url));
   const circulation = await deps.classifyCirculation(state.claims, contrast);
   stream.onNode("recuperacion", "done");
   return { evidence: [...kept, ...reference, ...circulation] };
@@ -112,9 +124,10 @@ export async function verify(
   stream.onNode("verificacion", "start");
   const verdicts = [];
   let degraded = false;
+  const referencia = state.evidence.filter((item) => item.role === "referencia");
   for (const claim of claimsToJudge(state.query, state.claims)) {
     const prueba = state.evidence.filter((item) => item.role === "prueba");
-    const judged = await deps.judgeClaim(claim, prueba, state.entities);
+    const judged = await deps.judgeClaim(claim, prueba, state.entities, referencia, state.focus.trim() || claim);
     degraded = degraded || judged.degraded;
     const verdict = {
       claim,

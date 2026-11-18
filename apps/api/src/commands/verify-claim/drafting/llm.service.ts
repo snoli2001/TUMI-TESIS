@@ -84,6 +84,28 @@ export class LlmService {
     }
   }
 
+  async pressQueries(name: string, focus: string): Promise<string[]> {
+    const fallback = fallbackQueries(name, focus);
+    if (!this.enabled()) return fallback;
+    try {
+      const model = new ChatOpenAI({
+        model: process.env.OPENAI_MODEL_MINI || "gpt-5.4-mini",
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+      const response = await model.invoke([
+        new SystemMessage(
+          'Devuelve solo JSON {"queries": string[]}. Máximo 2. Estas frases se envían tal cual a Tavily y, si Tavily no responde, a la búsqueda web de OpenAI. El código ya fija Perú, la profundidad avanzada y los dominios. No escribas site:, nombres de medios ni instrucciones. Cada consulta es una búsqueda corta, de menos de 200 caracteres, no un prompt ni una lista de palabras sueltas. Incluye el nombre y el hecho distintivo: el verbo, la cantidad, la fecha o el cargo si el dato los trae. Una consulta por hecho. No incluyas el oficio si el dato afirma otra cosa. Si el dato niega un hecho, la segunda consulta busca ese hecho en positivo. No inventes datos que no estén en el dato.',
+        ),
+        new HumanMessage(`Persona: ${name}\nDato a verificar: ${focus}`),
+      ]);
+      const queries = plannedText(parsePress(textOf(response.content)), 2);
+      return queries.length > 0 ? queries : fallback;
+    } catch (error) {
+      this.logger.warn(`La consulta de prensa quedó en el dato: ${error instanceof Error ? error.message : error}`);
+      return fallback;
+    }
+  }
+
   async planQueries(_kind: QuestionKind, name: string, query: string): Promise<SearchPlan> {
     const fallback = fallbackPlan(name, query);
     if (!this.enabled()) return fallback;
@@ -95,7 +117,7 @@ export class LlmService {
       const catalog = STATUTES.map((statute) => `${statute.id}: ${statute.title}`).join("; ");
       const response = await model.invoke([
         new SystemMessage(
-          `Devuelve solo JSON {"queries": string[], "statutes": string[]}. Máximo 3 consultas. Cada consulta incluye el nombre de la persona y el hecho distintivo, con la cantidad si la frase la trae. No uses el oficio si la frase afirma otra cosa. Si la frase niega un hecho, incluye también una consulta del hecho positivo. Si afirma otro cargo, busca ese cargo. statutes tiene como mucho 2 ids de este catálogo, y solo si una norma ayuda a explicar la regla: ${catalog}. Si el caso no trata de una regla, statutes es []. No inventes datos que no estén en la afirmación.`,
+          `Devuelve solo JSON {"stateQueries": string[], "statutes": string[], "legalQuery": string}. No armes la consulta de prensa. stateQueries tiene como mucho 2 consultas, y solo si el hecho trata de una sentencia, un proceso, una vacancia, una resolución, una sanción administrativa o un cargo o contrato público; si no, es []. Cada consulta estatal incluye el nombre y el hecho. statutes tiene como mucho 2 ids de este catálogo, y solo si una norma ayuda a explicar la regla: ${catalog}. Si el caso no trata de una regla, statutes es [] y legalQuery es "". Si statutes no está vacío, legalQuery es una consulta jurídica abstracta, sin el nombre de la persona ni la historia del caso. No inventes datos que no estén en la afirmación.`,
         ),
         new HumanMessage(`${name}. ${query}`),
       ]);
@@ -121,11 +143,12 @@ export class LlmService {
       });
       const stream = await model.stream([
         new SystemMessage(
-          `Redacta en español una explicación breve para un ciudadano. Los veredictos ya están decididos y no puedes cambiarlos. ${CLAIM_POLICY} Separa los argumentos en párrafos cortos y viñetas que empiecen con '- '. Usa **negrita** solo para el veredicto. Si el resultado está degradado, dilo.`,
+          `Redacta en español una explicación breve para un ciudadano. Los veredictos ya están decididos y no puedes cambiarlos. El campo dato es el hecho que se contrasta. ${CLAIM_POLICY} Separa los argumentos en párrafos cortos y viñetas que empiecen con '- '. Usa **negrita** solo para el veredicto. Si el resultado está degradado, dilo.`,
         ),
         new HumanMessage(
           JSON.stringify({
             consulta: state.query,
+            dato: state.focus || state.query,
             entidades: state.entities,
             veredictos: state.verdicts.map((verdict) => ({
               claim: verdict.claim,
@@ -173,36 +196,60 @@ function parseTarget(raw: string): string {
 }
 
 function fallbackPlan(name: string, query: string): SearchPlan {
-  return { queries: fallbackQueries(name, query), statutes: [] };
+  return { queries: fallbackQueries(name, query), stateQueries: [], statutes: [], legalQuery: "" };
 }
 
 function settlePlan(parsed: SearchPlan, fallback: SearchPlan): SearchPlan {
   const statutes = acceptedStatutes(parsed.statutes).map((statute) => statute.id);
   return {
     queries: parsed.queries.length > 0 ? parsed.queries : fallback.queries,
+    stateQueries: parsed.stateQueries.slice(0, 2),
     statutes,
+    legalQuery: statutes.length > 0 ? parsed.legalQuery.trim() : "",
   };
+}
+
+function parsePress(raw: string): unknown {
+  const json = raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1);
+  if (!json) return [];
+  try {
+    const parsed = JSON.parse(json) as { queries?: unknown };
+    return parsed.queries;
+  } catch {
+    return [];
+  }
 }
 
 function parsePlan(raw: string): SearchPlan {
   const json = raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1);
-  if (!json) return { queries: [], statutes: [] };
+  if (!json) return { queries: [], stateQueries: [], statutes: [], legalQuery: "" };
   try {
-    const parsed = JSON.parse(json) as { queries?: unknown; statutes?: unknown };
-    const queries = Array.isArray(parsed.queries)
-      ? parsed.queries
-          .filter((item): item is string => typeof item === "string")
-          .map((item) => item.trim())
-          .filter((item) => item.length > 0)
-          .slice(0, 3)
-      : [];
-    const statutes = Array.isArray(parsed.statutes)
-      ? parsed.statutes.filter((item): item is string => typeof item === "string")
-      : [];
-    return { queries, statutes };
+    const parsed = JSON.parse(json) as {
+      queries?: unknown;
+      stateQueries?: unknown;
+      statutes?: unknown;
+      legalQuery?: unknown;
+    };
+    return {
+      queries: plannedText(parsed.queries, 3),
+      stateQueries: plannedText(parsed.stateQueries, 2),
+      statutes: Array.isArray(parsed.statutes)
+        ? parsed.statutes.filter((item): item is string => typeof item === "string")
+        : [],
+      legalQuery: typeof parsed.legalQuery === "string" ? parsed.legalQuery.trim() : "",
+    };
   } catch {
-    return { queries: [], statutes: [] };
+    return { queries: [], stateQueries: [], statutes: [], legalQuery: "" };
   }
+}
+
+function plannedText(value: unknown, max: number): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0)
+    .slice(0, max);
 }
 
 function parseClaims(raw: string): string[] {

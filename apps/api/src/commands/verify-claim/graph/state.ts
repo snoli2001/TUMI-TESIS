@@ -12,8 +12,11 @@ export const TumiAnnotation = Annotation.Root({
   consultaId: Annotation<string>({ reducer: (_left, right) => right, default: () => "" }),
   entities: Annotation<EntityRef[]>({ reducer: (_left, right) => right, default: () => [] }),
   claims: Annotation<string[]>({ reducer: (_left, right) => right, default: () => [] }),
+  focus: Annotation<string>({ reducer: (_left, right) => right, default: () => "" }),
   queries: Annotation<string[]>({ reducer: (_left, right) => right, default: () => [] }),
+  stateQueries: Annotation<string[]>({ reducer: (_left, right) => right, default: () => [] }),
   statutes: Annotation<string[]>({ reducer: (_left, right) => right, default: () => [] }),
+  legalQuery: Annotation<string>({ reducer: (_left, right) => right, default: () => "" }),
   evidence: Annotation<EvidenceItem[]>({ reducer: (_left, right) => right, default: () => [] }),
   verdicts: Annotation<ClaimVerdict[]>({ reducer: (_left, right) => right, default: () => [] }),
   conclusion: Annotation<string>({ reducer: (_left, right) => right, default: () => "" }),
@@ -24,7 +27,9 @@ export type TumiState = typeof TumiAnnotation.State;
 
 export interface SearchPlan {
   queries: string[];
+  stateQueries: string[];
   statutes: string[];
+  legalQuery: string;
 }
 
 export interface StreamHooks {
@@ -44,7 +49,11 @@ export interface AgentDeps {
     sessionId: string,
     queries: string[],
     statutes: string[],
+    focus: string,
+    stateQueries: string[],
+    legalQuery: string,
   ) => Promise<EvidenceItem[]>;
+  pressQueries: (name: string, focus: string) => Promise<string[]>;
   planQueries: (kind: QuestionKind, name: string, query: string) => Promise<SearchPlan>;
   rerank: (claims: string[], evidence: EvidenceItem[]) => Promise<EvidenceItem[]>;
   classifyCirculation: (claims: string[], evidence: EvidenceItem[]) => Promise<EvidenceItem[]>;
@@ -52,6 +61,8 @@ export interface AgentDeps {
     claim: string,
     evidence: EvidenceItem[],
     entities: EntityRef[],
+    reference: EvidenceItem[],
+    focus: string,
   ) => Promise<
     Pick<ClaimVerdict, "verdict" | "confidence" | "degraded" | "decisions" | "explanation">
   >;

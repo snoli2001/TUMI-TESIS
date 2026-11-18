@@ -4,7 +4,7 @@ import OpenAI from "openai";
 import type { EvidenceItem } from "../graph/state";
 import { claimFocus, mentionsClaim, sameCandidate } from "../profile/rules";
 import { socialPostCounts } from "./attribution";
-import { isFactCheckUrl, isIpeUrl, isSocialUrl, NEWS_DOMAINS, preferReporting, roleForUrl, SOCIAL_DOMAINS, socialNetwork, TRUSTED_DOMAINS, trustedOutlet } from "./outlets";
+import { isFactCheckUrl, isIpeUrl, isSocialUrl, NEWS_DOMAINS, preferReporting, roleForUrl, SOCIAL_DOMAINS, socialNetwork, statePortal, STATE_DOMAINS, TRUSTED_DOMAINS, trustedOutlet } from "./outlets";
 import { needsPressFallback, pressItems } from "./press-fallback";
 
 interface SearchBatch {
@@ -33,6 +33,30 @@ export class WebSearchService {
     if (!needsPressFallback(notes.length, found.unavailable)) return notes;
     this.logger.warn("Tavily no disponible: se consulta la prensa con OpenAI");
     return this.keep(await this.openAiPress(queries), queries[0], identity);
+  }
+
+  async stateDocuments(
+    queries: string[],
+    identity?: { name: string; party?: string },
+  ): Promise<EvidenceItem[]> {
+    const texts = [...new Set(queries.map((item) => item.trim()).filter((item) => item.length >= 3))].slice(0, 2);
+    if (texts.length === 0) return [];
+    const lists = await Promise.all(
+      texts.map((text) =>
+        this.ask(text, {
+          topic: "general",
+          searchDepth: "advanced",
+          maxResults: 4,
+          includeDomains: [...STATE_DOMAINS],
+          includeDomainsMode: "restrict",
+        }),
+      ),
+    );
+    const items = lists.flatMap((batch) => batch.items);
+    const notes = this.keep(items, texts[0], identity);
+    if (!needsPressFallback(notes.length, items.length === 0 && lists.some((batch) => batch.unavailable))) return notes;
+    this.logger.warn("Tavily no disponible: se consultan portales del Estado con OpenAI");
+    return this.keep(await this.openAiState(texts), texts[0], identity);
   }
 
   async socialPosts(statement: string, identity: { name: string; party?: string }): Promise<EvidenceItem[]> {
@@ -147,12 +171,29 @@ export class WebSearchService {
     return notes.filter((item) => {
       if (isIpeUrl(item.url)) return true;
       const aboutCandidate = sameCandidate(item.title, item.snippet, identity);
-      if (trustedOutlet(item.url) && mentionsClaim(item.title, item.snippet, query, identity.name)) return true;
+      const official = Boolean(trustedOutlet(item.url) || statePortal(item.url));
+      if (official && mentionsClaim(item.title, item.snippet, query, identity.name)) return true;
       return aboutCandidate;
     });
   }
 
+  private async openAiState(queries: string[]): Promise<EvidenceItem[]> {
+    return this.openAiSearch(
+      queries,
+      [...STATE_DOMAINS],
+      "Busca sentencias, resoluciones o documentos oficiales. Escribe cada documento en su propia línea: una frase tomada de la página y, al final, la cita. No agregues datos que no estén en esa página.",
+    );
+  }
+
   private async openAiPress(queries: string[]): Promise<EvidenceItem[]> {
+    return this.openAiSearch(
+      queries,
+      [...TRUSTED_DOMAINS],
+      "Busca notas de la prensa peruana. Escribe cada nota en su propia línea: una frase tomada de la página y, al final, la cita. No agregues datos que no estén en esa página.",
+    );
+  }
+
+  private async openAiSearch(queries: string[], domains: string[], instructions: string): Promise<EvidenceItem[]> {
     const apiKey = process.env.OPENAI_API_KEY?.trim();
     const texts = [...new Set(queries.map((text) => text.trim()).filter((text) => text.length >= 3))]
       .sort((left, right) => right.length - left.length)
@@ -166,15 +207,14 @@ export class WebSearchService {
         max_output_tokens: 800,
         tool_choice: "required",
         include: ["web_search_call.action.sources"],
-        instructions:
-          "Busca notas de la prensa peruana. Escribe cada nota en su propia línea: una frase tomada de la página y, al final, la cita. No agregues datos que no estén en esa página.",
+        instructions,
         input: texts.join("\n"),
         tools: [
           {
             type: "web_search",
             external_web_access: true,
             search_context_size: "medium",
-            filters: { allowed_domains: [...TRUSTED_DOMAINS] },
+            filters: { allowed_domains: domains },
             user_location: { type: "approximate", country: "PE", city: "Lima", timezone: "America/Lima" },
           },
         ],

@@ -130,6 +130,12 @@ export function leadingNames(query: string): string[] {
   return [first, second];
 }
 
+export function sharesStem(token: string, text: string): boolean {
+  if (text.includes(token)) return true;
+  if (token.length < 5) return false;
+  return text.includes(token.slice(0, 5));
+}
+
 export function coverOutlets<T extends { id: string; url: string | null }>(
   ranked: T[],
   proof: T[],
@@ -183,7 +189,7 @@ export function evidenceFits(
     .filter((word) => !FILLER.has(word) && !skipped.has(word))
     .filter((word) => word.length >= 5 || (word.length >= 3 && !VERBS.has(word)));
   if (tokens.length === 0) return false;
-  return tokens.some((token) => text.includes(token));
+  return tokens.some((token) => sharesStem(token, text));
 }
 
 export function bestMatch<T extends { id: string; nombre: string }>(

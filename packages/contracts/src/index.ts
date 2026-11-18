@@ -94,6 +94,7 @@ export const factCheckResultSchema: z.ZodType<FactCheckResult> = z.object({
   id: z.string(),
   sessionId: z.string(),
   query: z.string(),
+  focus: z.string().optional(),
   conclusion: z.string(),
   degraded: z.boolean(),
   verdicts: z.array(claimVerdictSchema),

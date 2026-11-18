@@ -68,6 +68,30 @@ test("un titular con la palabra corta del hecho sigue como prueba", () => {
   );
 });
 
+test("una nota con el verbo en otro tiempo sigue hablando del hecho", () => {
+  const nota = {
+    origin: "tavily",
+    title: "Suspenden a Elio Riera por faltar a la verdad",
+    snippet: "No podrá ejercer la profesión por 3 meses.",
+  };
+  assert.equal(
+    evidenceFits(["ha sido suspendido por tres meses del ejercicio profesional"], nota, ["Elio", "Riera"]),
+    true,
+  );
+});
+
+test("una nota que solo comparte el oficio no habla de la suspensión", () => {
+  const nota = {
+    origin: "tavily",
+    title: "El recurso fue presentado por el abogado Elio Fernando Riera Garro",
+    snippet: "Representó a Alberto Fujimori ante la Corte Suprema.",
+  };
+  assert.equal(
+    evidenceFits(["suspendido por tres meses del ejercicio profesional"], nota, ["Elio", "Riera", "Garro"]),
+    false,
+  );
+});
+
 test("una nota que no menciona el hecho no sirve de prueba", () => {
   const nota = {
     origin: "tavily",

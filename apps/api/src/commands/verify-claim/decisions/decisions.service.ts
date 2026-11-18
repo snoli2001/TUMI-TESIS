@@ -51,7 +51,7 @@ export class DecisionsService {
     return choice.choice;
   }
 
-  async rerank(claims: string[], evidence: EvidenceItem[]): Promise<EvidenceItem[]> {
+  async rerank(claims: string[], evidence: EvidenceItem[], hasOtherEvidence = false): Promise<EvidenceItem[]> {
     if (!this.enabled() || evidence.length <= 1) return evidence.slice(0, 8);
     const limited = evidence.slice(0, 20);
     const answers = await this.ask(
@@ -67,7 +67,8 @@ export class DecisionsService {
       const answer = answers.find((candidate) => candidate.name === item.id);
       return answer?.type === "predicate" && answer.probability >= threshold;
     });
-    return (kept.length > 0 ? kept : limited.slice(0, 3)).slice(0, 8);
+    if (kept.length > 0) return kept.slice(0, 8);
+    return hasOtherEvidence ? [] : limited.slice(0, 3);
   }
 
   async classifyCirculation(claims: string[], evidence: EvidenceItem[]): Promise<EvidenceItem[]> {
@@ -98,7 +99,13 @@ export class DecisionsService {
     });
   }
 
-  async judgeClaim(claim: string, evidence: EvidenceItem[], entities: EntityRef[]) {
+  async judgeClaim(
+    claim: string,
+    evidence: EvidenceItem[],
+    entities: EntityRef[],
+    reference: EvidenceItem[] = [],
+    focus = "",
+  ) {
     if (!this.enabled()) {
       return {
         verdict: "no_verificable" as const,
@@ -112,6 +119,7 @@ export class DecisionsService {
     const answers = await this.ask(
       {
         claim,
+        dato: focus || claim,
         entidades: entities,
         evidencia: evidence.map((item) => ({
           id: item.id,
@@ -119,6 +127,11 @@ export class DecisionsService {
           medio: trustedOutlet(item.url),
           titulo: item.title,
           url: item.url,
+          texto: item.snippet,
+        })),
+        referenciaNormativa: reference.map((item) => ({
+          id: item.id,
+          titulo: item.title,
           texto: item.snippet,
         })),
       },
@@ -167,6 +180,7 @@ export class DecisionsService {
           ],
         },
       ],
+      "Evalúa el dato con las fuentes de prueba. referenciaNormativa explica la regla y no acredita el hecho. No completes datos que no estén ahí.",
     );
 
     const resolved = resolveVerdict(answers, decisionMinConfidence());
@@ -179,7 +193,11 @@ export class DecisionsService {
     };
   }
 
-  private async ask(evidence: unknown, questions: DecisionQuestion[]): Promise<DecisionAnswer[]> {
+  private async ask(
+    evidence: unknown,
+    questions: DecisionQuestion[],
+    preamble = "Evalúa solo la evidencia electoral adjunta. No completes datos que no estén ahí.",
+  ): Promise<DecisionAnswer[]> {
     const data = JSON.parse(JSON.stringify(evidence)) as Record<string, unknown>;
     try {
       const client = this.getClient();
@@ -191,7 +209,7 @@ export class DecisionsService {
             content: [
               {
                 type: "input_text",
-                text: "Evalúa solo la evidencia electoral adjunta. No completes datos que no estén ahí.",
+                text: preamble,
               },
               { type: "input_json", data },
             ],

@@ -57,6 +57,27 @@ const TRUSTED_OUTLETS: Array<{ domain: string; label: string }> = [
 
 export const TRUSTED_DOMAINS = TRUSTED_OUTLETS.map((item) => item.domain);
 
+const STATE_PORTALS: Array<{ domain: string; label: string }> = [
+  { domain: "pj.gob.pe", label: "Poder Judicial" },
+  { domain: "tc.gob.pe", label: "Tribunal Constitucional" },
+  { domain: "mpfn.gob.pe", label: "Ministerio Público" },
+  { domain: "jne.gob.pe", label: "JNE" },
+  { domain: "contraloria.gob.pe", label: "Contraloría" },
+  { domain: "indecopi.gob.pe", label: "Indecopi" },
+  { domain: "sunat.gob.pe", label: "Sunat" },
+  { domain: "servir.gob.pe", label: "Servir" },
+  { domain: "elperuano.pe", label: "El Peruano" },
+  { domain: "gob.pe", label: "gob.pe" },
+];
+
+export const STATE_DOMAINS = STATE_PORTALS.map((item) => item.domain);
+
+export function statePortal(url: string | null): string | null {
+  const host = hostOf(url);
+  if (!host) return null;
+  return STATE_PORTALS.find((item) => matchesDomain(host, [item.domain]))?.label ?? null;
+}
+
 export function trustedOutlet(url: string | null): string | null {
   const host = hostOf(url);
   if (!host) return null;

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isFactCheckUrl, isIpeUrl, isSocialUrl, preferReporting, roleForUrl, socialNetwork, trustedOutlet } from "./outlets";
+import { isFactCheckUrl, isIpeUrl, isSocialUrl, preferReporting, roleForUrl, socialNetwork, statePortal, trustedOutlet } from "./outlets";
 
 test("una crónica deja fuera la columna cuando ambas son del mismo medio", () => {
   const news = { url: "https://larepublica.pe/politica/2026/11/06/rafael-lopez-aliaga-no-sera-alcalde-de-lima" };
@@ -36,8 +36,14 @@ test("PerúCheck, el IPE y los medios de respaldo prueban el dato", () => {
   assert.equal(trustedOutlet("https://ejemplo.com/nota"), null);
 });
 
-test("una página del Estado cuenta como prueba", () => {
+test("una página del Estado cuenta como prueba y se nombra el portal", () => {
   assert.equal(roleForUrl("https://www.gob.pe/institucion/presidencia"), "prueba");
+  assert.equal(statePortal("https://www.gob.pe/institucion/presidencia"), "gob.pe");
+  assert.equal(statePortal("https://www.pj.gob.pe/resoluciones/sentencia.pdf"), "Poder Judicial");
+  assert.equal(statePortal("https://www.jne.gob.pe/resolucion"), "JNE");
+  assert.equal(statePortal("https://diariooficial.elperuano.pe/norma"), "El Peruano");
+  assert.equal(roleForUrl("https://cdn.www.gob.pe/uploads/codigo.pdf"), "prueba");
+  assert.equal(statePortal("https://elcomercio.pe/nota"), null);
 });
 
 test("una red social se reconoce y no verifica un hecho", () => {

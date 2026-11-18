@@ -1,4 +1,4 @@
-import { leadingNames, mentions } from "../graph/mentions";
+import { leadingNames, mentions, sharesStem } from "../graph/mentions";
 
 export interface OfficialProfile {
   id: string;
@@ -314,10 +314,12 @@ export function fallbackQueries(name: string, query: string): string[] {
 }
 
 export function searchList(name: string, focus: string, planned: string[]): string[] {
-  return [...fallbackQueries(name, focus), ...planned]
+  const agent = planned
     .map((item) => item.trim())
     .filter((item) => item.length >= 3)
-    .filter((item, index, all) => all.indexOf(item) === index);
+    .filter((item, index, all) => all.indexOf(item) === index)
+    .slice(0, 2);
+  return agent.length > 0 ? agent : fallbackQueries(name, focus);
 }
 
 export function webQuery(shortName: string, query: string, fullName: string): string {
@@ -357,7 +359,7 @@ export function mentionsClaim(title: string, snippet: string, query: string, nam
   const tokens = (query.match(/\p{L}+/gu) ?? [])
     .map(fold)
     .filter((word) => word.length >= 5 && !skipped.has(word));
-  if (!tokens.some((token) => text.includes(token))) return false;
+  if (!tokens.some((token) => sharesStem(token, text))) return false;
   if (/\bperu\b/.test(queryFolded) && !/\bperu\b/.test(text)) return false;
   return true;
 }

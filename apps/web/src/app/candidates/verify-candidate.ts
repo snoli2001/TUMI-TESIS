@@ -200,6 +200,13 @@ export class VerifyCandidate {
   verdicts(): ClaimVerdict[] {
     return this.result()?.verdicts ?? [];
   }
+
+  contrastedDatum(): string | null {
+    const result = this.result();
+    const focus = result?.focus?.trim() ?? "";
+    if (!focus || focus === result?.query.trim()) return null;
+    return focus;
+  }
 }
 
 function pastedImage(data: DataTransfer | null): File | null {

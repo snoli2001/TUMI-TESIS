@@ -67,6 +67,7 @@ export class VerifyClaimHandler implements OnModuleInit {
       const result = await buildGraph(this.deps(profile, focus), this.checkpointer).invoke(
         {
           query,
+          focus,
           sessionId,
           consultaId: sessionId,
           degraded: !this.decisions.enabled(),
@@ -76,9 +77,11 @@ export class VerifyClaimHandler implements OnModuleInit {
       return this.save(sessionId, withReading(this.fromGraph(sessionId, query, result), reading.line));
     }
 
+    const focus = await this.llm.focusContrast(request.query, "");
     const result = await this.graph.invoke(
       {
         query: request.query,
+        focus,
         sessionId,
         consultaId: sessionId,
         degraded: !this.decisions.enabled(),
@@ -139,6 +142,7 @@ export class VerifyClaimHandler implements OnModuleInit {
     const graph = await buildGraph(this.deps(profile, truthQuery), this.checkpointer!).invoke(
       {
         query: truthQuery,
+        focus: truthQuery,
         sessionId,
         consultaId: sessionId,
         degraded: !this.decisions.enabled(),
@@ -164,6 +168,7 @@ export class VerifyClaimHandler implements OnModuleInit {
       verdicts,
       mergeSources([truth.sources, saidSources]),
       truth.entities.length > 0 ? truth.entities : [entity],
+      truth.focus,
     );
   }
 
@@ -201,11 +206,13 @@ export class VerifyClaimHandler implements OnModuleInit {
     verdicts: ClaimVerdict[],
     sources: SourceRef[],
     entities: EntityRef[],
+    focus = "",
   ): FactCheckResult {
     return factCheckResultSchema.parse({
       id: sessionId,
       sessionId,
       query,
+      ...(focus.trim() ? { focus: focus.trim() } : {}),
       conclusion,
       degraded: verdicts.some((verdict) => verdict.degraded),
       verdicts,
@@ -223,6 +230,7 @@ export class VerifyClaimHandler implements OnModuleInit {
       id: sessionId,
       sessionId,
       query,
+      ...(result.focus.trim() ? { focus: result.focus.trim() } : {}),
       conclusion: result.conclusion,
       degraded: result.degraded,
       verdicts: result.verdicts,
@@ -260,10 +268,12 @@ export class VerifyClaimHandler implements OnModuleInit {
       searchCandidates: (query) => (pinned ? Promise.resolve([pinned]) : this.searchByMention(query)),
       chooseCandidate: (query, entities) => this.decisions.chooseCandidate(query, entities),
       extractClaims: (query) => this.llm.extractClaims(query),
+      pressQueries: (name, focus) => this.llm.pressQueries(name || profile?.shortName || "", focus),
       planQueries: (kind, name, query) => this.llm.planQueries(kind, name || profile?.shortName || "", query),
-      searchEvidence: async (query, claims, entities, sessionId, queries, statuteIds) => {
+      searchEvidence: async (query, claims, entities, sessionId, queries, statuteIds, focus, stateQueries, legalQuery) => {
         const text = [query, ...claims].join(" ");
-        const kind = questionKind(question || query);
+        const subject = focus.trim() || question || query;
+        const kind = questionKind(subject);
         const includePlan = kind === "proposal";
         const codigoExpedientes = includePlan
           ? profile
@@ -272,33 +282,30 @@ export class VerifyClaimHandler implements OnModuleInit {
           : [];
         const hojaVidaIds = profile ? [profile.id] : entities.map((entity) => entity.id);
         const name = profile?.shortName || entities[0]?.nombre || "";
-        const focus = question || query;
-        const searches = searchList(name, focus, queries);
+        const searches = searchList(name, subject, queries);
         const identity = {
           name: profile?.name || entities[0]?.nombre || "",
           party: profile?.party || entities[0]?.partido || "",
         };
         const matched = acceptedStatutes(statuteIds);
-        const legal = statuteQuery(focus, matched);
-        const [local, remote, statutes] = await Promise.all([
+        const legal = (legalQuery.trim() || statuteQuery(subject, matched)).slice(0, 400);
+        const [local, remote, statutes, officialPages] = await Promise.all([
           this.vectors.search(text, { codigoExpedientes, sessionId, hojaVidaIds, includePlan }),
           this.web.search(searches, identity),
           legal ? this.vectors.searchStatutes(legal, matched.map((statute) => statute.id)) : Promise.resolve([]),
+          this.web.stateDocuments(stateQueries, identity),
         ]);
         const reference = statutes.map((item) => ({ ...item, role: "referencia" as const }));
-        const official = profile ? officialEvidence(profile, focus) : [];
-        const roster = profile && asksOtherOffice(focus, profile.office) ? rosterEvidence(profile) : [];
-        return [...official, ...roster, ...reference, ...(profile ? resumeEvidence(profile) : []), ...local, ...remote];
+        const official = profile ? officialEvidence(profile, subject) : [];
+        const roster = profile && asksOtherOffice(subject, profile.office) ? rosterEvidence(profile) : [];
+        return [...official, ...roster, ...reference, ...(profile ? resumeEvidence(profile) : []), ...local, ...remote, ...officialPages];
       },
       rerank: async (claims, evidence) => {
         const pinnedItems = evidence.filter(
-          (item) =>
-            item.id.startsWith("oficial-") ||
-            item.id.startsWith("padron-") ||
-            item.origin === "tavily",
+          (item) => item.id.startsWith("oficial-") || item.id.startsWith("padron-"),
         );
         const rest = evidence.filter((item) => !pinnedItems.includes(item));
-        const ranked = await this.decisions.rerank(claims, rest);
+        const ranked = await this.decisions.rerank(claims, rest, pinnedItems.length > 0);
         return [...pinnedItems, ...ranked];
       },
       classifyCirculation: (claims, evidence) => this.decisions.classifyCirculation(claims, evidence),

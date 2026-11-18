@@ -84,6 +84,7 @@ export interface FactCheckResult {
   id: string;
   sessionId: string;
   query: string;
+  focus?: string;
   conclusion: string;
   degraded: boolean;
   verdicts: ClaimVerdict[];

@@ -1,7 +1,7 @@
 import { Component, signal } from "@angular/core";
 import type { ClaimVerdict, FactCheckResult, SourceRef } from "@tumi/contracts";
 import { ApiService } from "../api.service";
-import { primaryCitation, proofCitations, citationLabel, statusLabel, originLabel, stepLabel, stanceLabel, contrastSources, proofSources, classifierReading, firmnessCaption, firmnessWidth, verdictCertainty, evidenceNote, supportsCaption, deniesCaption } from "../labels";
+import { primaryCitation, proofCitations, citationLabel, statusLabel, originLabel, stepLabel, stanceLabel, contrastSources, documentName, proofSources, referenceSources, classifierReading, firmnessCaption, firmnessWidth, verdictCertainty, evidenceNote, supportsCaption, deniesCaption } from "../labels";
 import { markdownToHtml } from "../markdown";
 import { SessionService } from "../session.service";
 
@@ -78,6 +78,10 @@ export class VerifyClaimPage {
     return contrastSources(this.sources());
   }
 
+  reference(): SourceRef[] {
+    return referenceSources(this.sources());
+  }
+
   stepLabel = stepLabel;
   statusLabel = statusLabel;
   originLabel = originLabel;
@@ -92,7 +96,15 @@ export class VerifyClaimPage {
   firmnessCaption = firmnessCaption;
   firmnessWidth = firmnessWidth;
   verdictCertainty = verdictCertainty;
+  documentName = documentName;
   asHtml = markdownToHtml;
+
+  contrastedDatum(): string | null {
+    const result = this.result();
+    const focus = result?.focus?.trim() ?? "";
+    if (!focus || focus === result?.query.trim()) return null;
+    return focus;
+  }
 
   verdicts(): ClaimVerdict[] {
     return this.result()?.verdicts ?? [];
