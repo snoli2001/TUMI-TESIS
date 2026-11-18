@@ -13,6 +13,7 @@ export const TumiAnnotation = Annotation.Root({
   entities: Annotation<EntityRef[]>({ reducer: (_left, right) => right, default: () => [] }),
   claims: Annotation<string[]>({ reducer: (_left, right) => right, default: () => [] }),
   queries: Annotation<string[]>({ reducer: (_left, right) => right, default: () => [] }),
+  statutes: Annotation<string[]>({ reducer: (_left, right) => right, default: () => [] }),
   evidence: Annotation<EvidenceItem[]>({ reducer: (_left, right) => right, default: () => [] }),
   verdicts: Annotation<ClaimVerdict[]>({ reducer: (_left, right) => right, default: () => [] }),
   conclusion: Annotation<string>({ reducer: (_left, right) => right, default: () => "" }),
@@ -20,6 +21,11 @@ export const TumiAnnotation = Annotation.Root({
 });
 
 export type TumiState = typeof TumiAnnotation.State;
+
+export interface SearchPlan {
+  queries: string[];
+  statutes: string[];
+}
 
 export interface StreamHooks {
   onNode: (node: string, status: "start" | "done") => void;
@@ -37,8 +43,9 @@ export interface AgentDeps {
     entities: EntityRef[],
     sessionId: string,
     queries: string[],
+    statutes: string[],
   ) => Promise<EvidenceItem[]>;
-  planQueries: (kind: QuestionKind, name: string, query: string) => Promise<string[]>;
+  planQueries: (kind: QuestionKind, name: string, query: string) => Promise<SearchPlan>;
   rerank: (claims: string[], evidence: EvidenceItem[]) => Promise<EvidenceItem[]>;
   classifyCirculation: (claims: string[], evidence: EvidenceItem[]) => Promise<EvidenceItem[]>;
   judgeClaim: (

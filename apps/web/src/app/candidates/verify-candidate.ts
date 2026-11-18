@@ -13,6 +13,7 @@ import {
   verdictCertainty,
   contrastSources,
   documentName,
+  referenceSources,
   primaryCitation,
   proofCitations,
   proofSources,
@@ -171,6 +172,10 @@ export class VerifyCandidate {
 
   contrast(): SourceRef[] {
     return contrastSources(this.sources());
+  }
+
+  reference(): SourceRef[] {
+    return referenceSources(this.sources());
   }
 
   stepLabel = stepLabel;

@@ -57,7 +57,11 @@ export function stanceLabel(stance: string | null): string {
 }
 
 export function proofSources(sources: SourceRef[]): SourceRef[] {
-  return sources.filter((source) => source.role !== "contraste");
+  return sources.filter((source) => source.role === "prueba");
+}
+
+export function referenceSources(sources: SourceRef[]): SourceRef[] {
+  return sources.filter((source) => source.role === "referencia");
 }
 
 export function contrastSources(sources: SourceRef[]): SourceRef[] {

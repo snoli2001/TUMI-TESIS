@@ -6,7 +6,10 @@ import { deterministicClaims, textOf } from "../../../shared/text";
 import type { TumiState } from "../graph/state";
 import { parseImageReading, type ImageReading } from "./image-reading";
 import { trustedOutlet } from "../evidence/outlets";
-import { contrastTarget, searchQueries, webQuery, type QuestionKind } from "../profile/rules";
+import { acceptedStatutes, STATUTES } from "../evidence/statutes";
+import { CLAIM_POLICY } from "../policy";
+import { contrastTarget, fallbackQueries, type QuestionKind } from "../profile/rules";
+import type { SearchPlan } from "../graph/state";
 
 @Injectable()
 export class LlmService {
@@ -81,32 +84,25 @@ export class LlmService {
     }
   }
 
-  async planQueries(kind: QuestionKind, name: string, query: string): Promise<string[]> {
-    const fact = webQuery(name, query, name);
-    const base = searchQueries(kind, name, fact);
-    if (!this.enabled()) return base;
+  async planQueries(_kind: QuestionKind, name: string, query: string): Promise<SearchPlan> {
+    const fallback = fallbackPlan(name, query);
+    if (!this.enabled()) return fallback;
     try {
       const model = new ChatOpenAI({
         model: process.env.OPENAI_MODEL_MINI || "gpt-5.4-mini",
         apiKey: process.env.OPENAI_API_KEY,
       });
-      const goal =
-        kind === "criminal"
-          ? "Busca denuncias, expedientes y procesos de esa persona."
-          : kind === "proposal"
-            ? "Busca declaraciones y propuestas dichas en público."
-            : "Busca el hecho de la afirmación.";
+      const catalog = STATUTES.map((statute) => `${statute.id}: ${statute.title}`).join("; ");
       const response = await model.invoke([
         new SystemMessage(
-          `Devuelve solo JSON {"queries": string[]}. Máximo 3. Cada consulta incluye el nombre del candidato. ${goal} No inventes datos que no estén en la afirmación.`,
+          `Devuelve solo JSON {"queries": string[], "statutes": string[]}. Máximo 3 consultas. Cada consulta incluye el nombre de la persona y busca el hecho a contrastar. Si la frase niega un hecho, incluye también una consulta del hecho positivo. Si afirma otro cargo, busca ese cargo. statutes tiene como mucho 2 ids de este catálogo, y solo si una norma ayuda a explicar la regla: ${catalog}. Si el caso no trata de una regla, statutes es []. No inventes datos que no estén en la afirmación.`,
         ),
         new HumanMessage(`${name}. ${query}`),
       ]);
-      const parsed = parseQueries(textOf(response.content));
-      return parsed.length > 0 ? parsed : base;
+      return settlePlan(parsePlan(textOf(response.content)), fallback);
     } catch (error) {
       this.logger.warn(`Búsqueda degradada: ${error instanceof Error ? error.message : error}`);
-      return base;
+      return fallback;
     }
   }
 
@@ -125,7 +121,7 @@ export class LlmService {
       });
       const stream = await model.stream([
         new SystemMessage(
-          "Redacta en español una explicación breve para un ciudadano. Los veredictos ya están decididos y no puedes cambiarlos. Si no hay entidades, no inventes nombre, cargo ni partido. Solo las fuentes con rol prueba sostienen el veredicto. No digas que un medio confirmó el hecho si esa nota no está en la lista de fuentes, y no reescribas la consulta como si fuera una fuente. Si una fuente se titula Hoja de vida, esa declaración es la fuente oficial del antecedente: cítala primero y no la sustituyas por una nota. Una nota solo informa denuncias o expedientes públicos. RPP, El Comercio, La República, Agencia Andina, OjoPúblico, Convoca, IDL-Reporteros y el IPE son fuentes de prueba: lo que publican sobre el hecho se toma como cierto. Cita cada uno de esos medios que habla del hecho, con su nombre, y no te quedes con una sola nota. PerúCheck y larepublica.pe/verificador son chequeos publicados: cítalos por su nombre y no los trates como un rumor. Si la fuente es el plan de gobierno, úsalo para lo prometido por escrito; una nota solo muestra que lo dijo en público. Si el padrón muestra el cargo al que postula en 2026, ese es el dato oficial de la candidatura. Si una nota explica que no puede postular al cargo afirmado porque la reelección inmediata está prohibida, incluye ese motivo y cita el medio. Haber ocupado el cargo antes no convierte en verdadero el claim de que lo será ahora. Si la fuente es una norma, explica qué exige o permite, con su nombre y su página, y menciona la edición cuando el fragmento la trae. Si un medio de prueba publica que la persona fue ministra, renunció, anunció una candidatura o presentó un proyecto, dilo aunque la hoja de vida no lo declare. Si el veredicto es falso porque el cargo fue en otro gobierno, porque la persona sí ocupó el cargo que niega, o porque una promesa no demuestra la entrega, dilo en la primera oración. La unión civil no matrimonial no es matrimonio igualitario: si el veredicto es falso por esa diferencia, explícala. Si el veredicto es no verificable porque la frase es un juicio de valor o una metáfora, como «el mejor» o «potencia mundial», dilo en la primera oración y no la trates como un hecho medido. El Código Penal no demuestra que la persona cometió el delito. El Código Procesal Penal no convierte una denuncia en condena. Si el claim atribuye un delito y ninguna fuente de prueba cita una condena, dilo en la primera oración y no dejes el hecho como una posibilidad. Las fuentes de contraste no se citan ni se parafrasean: di solo que circulan menciones no verificadas y que no acreditan el hecho. Separa los argumentos en párrafos cortos y viñetas que empiecen con '- '. Usa **negrita** solo para el veredicto. Si el resultado está degradado, dilo.",
+          `Redacta en español una explicación breve para un ciudadano. Los veredictos ya están decididos y no puedes cambiarlos. ${CLAIM_POLICY} Separa los argumentos en párrafos cortos y viñetas que empiecen con '- '. Usa **negrita** solo para el veredicto. Si el resultado está degradado, dilo.`,
         ),
         new HumanMessage(
           JSON.stringify({
@@ -176,19 +172,36 @@ function parseTarget(raw: string): string {
   }
 }
 
-function parseQueries(raw: string): string[] {
+function fallbackPlan(name: string, query: string): SearchPlan {
+  return { queries: fallbackQueries(name, query), statutes: [] };
+}
+
+function settlePlan(parsed: SearchPlan, fallback: SearchPlan): SearchPlan {
+  const statutes = acceptedStatutes(parsed.statutes).map((statute) => statute.id);
+  return {
+    queries: parsed.queries.length > 0 ? parsed.queries : fallback.queries,
+    statutes,
+  };
+}
+
+function parsePlan(raw: string): SearchPlan {
   const json = raw.slice(raw.indexOf("{"), raw.lastIndexOf("}") + 1);
-  if (!json) return [];
+  if (!json) return { queries: [], statutes: [] };
   try {
-    const parsed = JSON.parse(json) as { queries?: unknown };
-    if (!Array.isArray(parsed.queries)) return [];
-    return parsed.queries
-      .filter((item): item is string => typeof item === "string")
-      .map((item) => item.trim())
-      .filter((item) => item.length > 0)
-      .slice(0, 3);
+    const parsed = JSON.parse(json) as { queries?: unknown; statutes?: unknown };
+    const queries = Array.isArray(parsed.queries)
+      ? parsed.queries
+          .filter((item): item is string => typeof item === "string")
+          .map((item) => item.trim())
+          .filter((item) => item.length > 0)
+          .slice(0, 3)
+      : [];
+    const statutes = Array.isArray(parsed.statutes)
+      ? parsed.statutes.filter((item): item is string => typeof item === "string")
+      : [];
+    return { queries, statutes };
   } catch {
-    return [];
+    return { queries: [], statutes: [] };
   }
 }
 
@@ -223,7 +236,8 @@ function originLabel(origin: string): string {
 
 function degradedConclusion(state: TumiState): string {
   const claims = state.claims.map((claim) => `- ${claim}`).join("\n");
-  const prueba = state.evidence.filter((item) => item.role !== "contraste");
+  const prueba = state.evidence.filter((item) => item.role === "prueba");
+  const referencia = state.evidence.filter((item) => item.role === "referencia");
   const contraste = state.evidence.filter((item) => item.role === "contraste");
   const lista = (items: TumiState["evidence"]) =>
     items.map((item) => `- ${item.title} (${originLabel(item.origin)})`).join("\n");
@@ -235,6 +249,9 @@ function degradedConclusion(state: TumiState): string {
     "",
     "Fuentes que podrían verificar, sin usarlas todavía:",
     lista(prueba) || "- (ninguna)",
+    "",
+    "Normas de referencia, que explican la regla y no acreditan el caso:",
+    lista(referencia) || "- (ninguna)",
     "",
     "Páginas donde circula, que no verifican:",
     lista(contraste) || "- (ninguna)",

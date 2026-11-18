@@ -130,6 +130,7 @@ export function contextQueries(name: string, query: string): string[] {
   const who = name.trim();
   const queries: string[] = [];
   const deniesMinistry = /nunca/.test(folded) && /\bministro\b|ministerio/.test(folded);
+  if (/suspend|sancion|inhabilit|colegio de abogados/.test(folded)) queries.unshift(`${who} suspendido`);
   if (deniesMinistry) queries.push(`${who} fue ministro`);
   if (/\bministro\b|ministerio|renunci/.test(folded)) queries.push(`${who} ministro`);
   if (/renunci/.test(folded)) queries.push(`${who} renuncia`);
@@ -301,6 +302,11 @@ export function decide(query: string, profile: OfficialProfile): ProfileRule | n
   }
 
   return null;
+}
+
+export function fallbackQueries(name: string, query: string): string[] {
+  const fact = webQuery(name, query, name).trim();
+  return fact.length >= 3 ? [fact] : [];
 }
 
 export function webQuery(shortName: string, query: string, fullName: string): string {

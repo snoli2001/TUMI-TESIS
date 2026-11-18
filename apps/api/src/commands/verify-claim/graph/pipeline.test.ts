@@ -36,7 +36,7 @@ function degradedDeps(): AgentDeps {
     },
     extractClaims: async (query) => [query],
     searchEvidence: async () => [evidence],
-    planQueries: async () => [],
+    planQueries: async () => ({ queries: [], statutes: [] }),
     rerank: async (_claims, items) => items,
     classifyCirculation: async (_claims, items) => items,
     judgeClaim: async () => ({

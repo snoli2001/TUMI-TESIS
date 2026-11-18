@@ -6,6 +6,7 @@ import type { DecisionCreateParams } from "openai/resources/decisions";
 import { decisionMinConfidence, relevanceMin } from "../../../shared/text";
 import type { EvidenceItem } from "../graph/state";
 import { trustedOutlet } from "../evidence/outlets";
+import { CLAIM_POLICY } from "../policy";
 
 type DecisionQuestion = DecisionCreateParams["questions"][number];
 
@@ -135,16 +136,15 @@ export class DecisionsService {
         {
           type: "choice",
           name: "veredicto",
-          instructions:
-            "Clasifica el claim solo con la evidencia adjunta. Una nota que no menciona el hecho no es evidencia. Contrasta el claim con todas las fuentes de prueba que hablan del hecho: si varias coinciden, sigue al conjunto y no a una sola nota. RPP, El Comercio, La República, Agencia Andina, OjoPúblico, Convoca, IDL-Reporteros, PerúCheck, el Verificador de La República y el IPE son fuentes de prueba: un dato que publican sobre el hecho se toma como cierto. Si PerúCheck o larepublica.pe/verificador publican un chequeo de este candidato y este dato, elige el veredicto de ese chequeo. Si el padrón muestra otro cargo para estas elecciones, el claim de que será ese otro cargo es falso. Una nota puede explicar el motivo, como la prohibición de reelección inmediata. Haber ocupado el cargo antes no vuelve verdadero el claim de que lo será ahora. Si el claim atribuye un delito, solo es verdadero cuando una fuente de prueba cita una condena firme por ese hecho. Si ninguna fuente de prueba registra esa condena, elige falso: la afirmación no está acreditada. Elige no_verificable solo si una fuente de prueba describe un proceso judicial todavía abierto. Una denuncia, aunque la recoja uno de esos medios, no es una condena. Una norma (Constitución, Compendio electoral, Ley de municipalidades, Código Procesal Penal, Ley del Poder Ejecutivo, Código Penal, Código Civil o Ley de transparencia) explica la regla, con su nombre y página, y no prueba por sí sola que el candidato hizo el hecho. El Código Penal define un delito y una pena; no acredita que el candidato lo haya cometido. El Código Procesal Penal distingue denuncia, investigación, acusación y sentencia: una noticia de denuncia no se convierte en condena porque el código describa la denuncia. Un cargo de ministro, una renuncia, una candidatura anunciada o la presentación de un proyecto de ley es un hecho público ya ocurrido: si un medio de prueba lo publica, elige verdadero. Que la hoja de vida no lo declare no lo vuelve falso. Que una norma no nombre a la persona tampoco lo niega: la norma explica el cargo, no el nombramiento. Si ninguna fuente de prueba afirma ni niega ese hecho, elige no_verificable. Si el claim sitúa ese cargo en un gobierno y la nota lo sitúa en otro, elige falso. Si el claim dice que la persona nunca ocupó un cargo y un medio de prueba publica que sí lo ocupó, elige falso. Si el claim dice que una promesa demuestra que el hecho ya se cumplió, elige falso: la promesa no acredita la entrega. Si un medio de prueba confirma el acto, una fecha que el extracto no menciona no vuelve el claim falso. La unión civil no matrimonial no es matrimonio igualitario: si la fuente dice que el proyecto era de unión civil, el claim de que era matrimonio igualitario es falso. El Código Civil describe el matrimonio y no reclasifica ese proyecto. «El mejor», «el peor» o «potencia mundial», sin indicador, umbral y período, es no_verificable. No uses no_verificable cuando un medio de prueba ya publicó el hecho.",
+          instructions: CLAIM_POLICY,
           choices: [
             {
               value: "verdadero",
-              description: "Una fuente de prueba cita una condena firme o respalda el claim de forma directa.",
+              description: "Una fuente de prueba publica el hecho, o la hoja de vida o el padrón declaran ese dato.",
             },
             {
               value: "falso",
-              description: "Ninguna fuente de prueba acredita el claim, o una fuente de prueba lo niega.",
+              description: "Una fuente de prueba niega el hecho, o la frase niega un hecho que una fuente de prueba publica.",
             },
             {
               value: "enganoso",
@@ -152,7 +152,7 @@ export class DecisionsService {
             },
             {
               value: "no_verificable",
-              description: "Una fuente de prueba muestra un proceso abierto, sin condena ni desmentido.",
+              description: "Ninguna fuente de prueba afirma ni niega el hecho, o es un juicio de valor sin indicador, umbral y período.",
             },
           ],
         },

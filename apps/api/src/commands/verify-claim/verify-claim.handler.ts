@@ -8,31 +8,23 @@ import { getPrisma } from "@tumi/database";
 import { DecisionsService } from "./decisions/decisions.service";
 import { JneSearchService } from "./evidence/jne-search.service";
 import { VectorSearchService } from "./evidence/vector-search.service";
-import { isSocialUrl, trustedOutlet } from "./evidence/outlets";
+import { isSocialUrl } from "./evidence/outlets";
 import { WebSearchService } from "./evidence/web-search.service";
 import { buildGraph } from "./graph/fact-check.graph";
-import { bestMatch, evidenceFits, leadingNames, mentions, namesInText } from "./graph/mentions";
+import { bestMatch, leadingNames, mentions, namesInText } from "./graph/mentions";
 import type { AgentDeps, EvidenceItem, StreamHooks, TumiState } from "./graph/state";
 import { loadProfile } from "./profile/load-profile";
 import {
   asksOtherOffice,
-  decide,
-  contextQueries,
-  mentionsClaim,
-  sameCandidate,
-  isValueJudgment,
-  officeQueries,
+  fallbackQueries,
   officialReading,
   questionKind,
-  searchQueries,
-  webQuery,
   type OfficialProfile,
-  type ProfileRule,
 } from "./profile/rules";
 import { readingLine, type ImageKind } from "./drafting/image-reading";
 import { LlmService } from "./drafting/llm.service";
 import { statementAppears } from "./evidence/attribution";
-import { statutesFor } from "./evidence/statutes";
+import { acceptedStatutes, statuteQuery } from "./evidence/statutes";
 
 @Injectable()
 export class VerifyClaimHandler implements OnModuleInit {
@@ -72,21 +64,12 @@ export class VerifyClaimHandler implements OnModuleInit {
         );
       }
       const focus = await this.llm.focusContrast(query, profile.name);
-      const rule = decide(focus, profile);
-      const kind = questionKind(focus);
-      const opensNews = asksOtherOffice(focus, profile.office);
-      if (reading.imageKind !== "statement" && rule && kind !== "criminal" && kind !== "proposal" && !opensNews) {
-        return this.save(
-          sessionId,
-          withReading(await this.fromRule(sessionId, query, focus, profile, rule, hooks), reading.line),
-        );
-      }
       const result = await buildGraph(this.deps(profile, focus), this.checkpointer).invoke(
         {
           query,
           sessionId,
           consultaId: sessionId,
-          degraded: officialReading(query, profile) ? false : !this.decisions.enabled(),
+          degraded: !this.decisions.enabled(),
         },
         { configurable: { thread_id: sessionId, hooks } },
       );
@@ -158,7 +141,7 @@ export class VerifyClaimHandler implements OnModuleInit {
         query: truthQuery,
         sessionId,
         consultaId: sessionId,
-        degraded: officialReading(truthQuery, profile) ? false : !this.decisions.enabled(),
+        degraded: !this.decisions.enabled(),
       },
       { configurable: { thread_id: sessionId, hooks } },
     );
@@ -231,81 +214,6 @@ export class VerifyClaimHandler implements OnModuleInit {
     });
   }
 
-  private async fromRule(
-    sessionId: string,
-    query: string,
-    focus: string,
-    profile: OfficialProfile,
-    rule: ProfileRule,
-    hooks: StreamHooks,
-  ): Promise<FactCheckResult> {
-    const entity = entityOf(profile);
-    if (rule.kind === "outside") {
-      hooks.onToken(rule.message);
-      return this.toResult(sessionId, query, rule.message, "no_verificable", null, [], [entity]);
-    }
-    const source = sourceOf(profile, rule);
-    const press = await this.pressSources(focus, profile);
-    const sources = mergeSources([[source], press]);
-    const verdict: ClaimVerdict = {
-      claim: query,
-      verdict: rule.verdict,
-      confidence: rule.confidence,
-      degraded: false,
-      explanation: "",
-      decisions: [],
-      sources,
-    };
-    const state: TumiState = {
-      query,
-      sessionId,
-      consultaId: sessionId,
-      entities: [entity],
-      claims: [query],
-      queries: [],
-      evidence: sources,
-      verdicts: [verdict],
-      conclusion: "",
-      degraded: false,
-    };
-    hooks.onNode("explicacion", "start");
-    let conclusion = rule.explanation;
-    if (this.llm.enabled()) {
-      try {
-        conclusion = await this.llm.explain(state, hooks.onToken);
-      } catch (error) {
-        this.logger.warn(`El redactor no explicó la regla: ${error instanceof Error ? error.message : error}`);
-        hooks.onToken(conclusion);
-      }
-    } else {
-      hooks.onToken(conclusion);
-    }
-    hooks.onNode("explicacion", "done");
-    return this.toResult(sessionId, query, conclusion, rule.verdict, rule.confidence, sources, [entity]);
-  }
-
-  private async pressSources(focus: string, profile: OfficialProfile): Promise<SourceRef[]> {
-    const query = webQuery(profile.shortName, focus, profile.name);
-    try {
-      const found = await this.web.search([query, focus], { name: profile.name, party: profile.party });
-      return found.filter((item) => this.keepsPress(focus, profile, item));
-    } catch (error) {
-      this.logger.warn(`La prensa no se consultó: ${error instanceof Error ? error.message : error}`);
-      return [];
-    }
-  }
-
-  private keepsPress(focus: string, profile: OfficialProfile, item: EvidenceItem): boolean {
-    if (item.role === "contraste") return false;
-    if (item.origin === "tavily") {
-      const named = sameCandidate(item.title, item.snippet, { name: profile.name, party: profile.party });
-      const onClaim =
-        Boolean(trustedOutlet(item.url)) && mentionsClaim(item.title, item.snippet, focus, profile.name);
-      if (!named && !onClaim) return false;
-    }
-    return evidenceFits([focus], item, profile.name.split(/\s+/));
-  }
-
   private fromGraph(
     sessionId: string,
     query: string,
@@ -320,37 +228,6 @@ export class VerifyClaimHandler implements OnModuleInit {
       verdicts: result.verdicts,
       sources: uniqueSources(result),
       entities: result.entities,
-    });
-  }
-
-  private toResult(
-    sessionId: string,
-    query: string,
-    conclusion: string,
-    verdict: ClaimVerdict["verdict"],
-    confidence: number | null,
-    sources: SourceRef[],
-    entities: EntityRef[],
-  ): FactCheckResult {
-    return factCheckResultSchema.parse({
-      id: sessionId,
-      sessionId,
-      query,
-      conclusion,
-      degraded: false,
-      verdicts: [
-        {
-          claim: query,
-          verdict,
-          confidence,
-          degraded: false,
-          explanation: "",
-          decisions: [],
-          sources,
-        },
-      ],
-      sources,
-      entities,
     });
   }
 
@@ -384,7 +261,7 @@ export class VerifyClaimHandler implements OnModuleInit {
       chooseCandidate: (query, entities) => this.decisions.chooseCandidate(query, entities),
       extractClaims: (query) => this.llm.extractClaims(query),
       planQueries: (kind, name, query) => this.llm.planQueries(kind, name || profile?.shortName || "", query),
-      searchEvidence: async (query, claims, entities, sessionId, queries) => {
+      searchEvidence: async (query, claims, entities, sessionId, queries, statuteIds) => {
         const text = [query, ...claims].join(" ");
         const kind = questionKind(question || query);
         const includePlan = kind === "proposal";
@@ -395,31 +272,30 @@ export class VerifyClaimHandler implements OnModuleInit {
           : [];
         const hojaVidaIds = profile ? [profile.id] : entities.map((entity) => entity.id);
         const name = profile?.shortName || entities[0]?.nombre || "";
-        const fact = profile ? webQuery(profile.shortName, text, profile.name) : text;
-        const planned = queries.length > 0 ? queries : searchQueries(kind, name, fact);
-        const aboutOffice = profile ? officeQueries(name, question || query, profile.office) : [];
-        const aboutRecord = contextQueries(name, question || query);
-        const searches = [...aboutOffice, ...aboutRecord, fact, ...planned].filter((item, index, all) => all.indexOf(item) === index);
+        const focus = question || query;
+        const planned = queries.length > 0 ? queries : fallbackQueries(name, focus);
+        const searches = planned.filter((item, index, all) => all.indexOf(item) === index);
         const identity = {
           name: profile?.name || entities[0]?.nombre || "",
           party: profile?.party || entities[0]?.partido || "",
         };
-        const statuteIds = statutesFor(text).map((statute) => statute.id);
+        const matched = acceptedStatutes(statuteIds);
+        const legal = statuteQuery(focus, matched);
         const [local, remote, statutes] = await Promise.all([
           this.vectors.search(text, { codigoExpedientes, sessionId, hojaVidaIds, includePlan }),
           this.web.search(searches, identity),
-          this.vectors.searchStatutes(text, statuteIds),
+          legal ? this.vectors.searchStatutes(legal, matched.map((statute) => statute.id)) : Promise.resolve([]),
         ]);
-        const official = profile ? officialEvidence(profile, question || query) : [];
-        const roster = profile && asksOtherOffice(question || query, profile.office) ? rosterEvidence(profile) : [];
-        return [...official, ...roster, ...statutes, ...(profile ? resumeEvidence(profile) : []), ...local, ...remote];
+        const reference = statutes.map((item) => ({ ...item, role: "referencia" as const }));
+        const official = profile ? officialEvidence(profile, focus) : [];
+        const roster = profile && asksOtherOffice(focus, profile.office) ? rosterEvidence(profile) : [];
+        return [...official, ...roster, ...reference, ...(profile ? resumeEvidence(profile) : []), ...local, ...remote];
       },
       rerank: async (claims, evidence) => {
         const pinnedItems = evidence.filter(
           (item) =>
             item.id.startsWith("oficial-") ||
             item.id.startsWith("padron-") ||
-            item.id.startsWith("norma-") ||
             item.origin === "tavily",
         );
         const rest = evidence.filter((item) => !pinnedItems.includes(item));
@@ -427,31 +303,7 @@ export class VerifyClaimHandler implements OnModuleInit {
         return [...pinnedItems, ...ranked];
       },
       classifyCirculation: (claims, evidence) => this.decisions.classifyCirculation(claims, evidence),
-      judgeClaim: (claim, evidence, entities) => {
-        if (isValueJudgment(question || claim)) {
-          return Promise.resolve({
-            verdict: "no_verificable" as const,
-            confidence: 0.8,
-            degraded: false,
-            decisions: [],
-            explanation:
-              "La frase es un juicio de valor o una metáfora. No trae un indicador, un umbral ni un período que permitan comprobarla.",
-          });
-        }
-        if (profile) {
-          const official = officialReading(question || claim, profile);
-          if (official) {
-            return Promise.resolve({
-              verdict: official.verdict,
-              confidence: official.confidence,
-              degraded: false,
-              decisions: [],
-              explanation: official.explanation,
-            });
-          }
-        }
-        return this.decisions.judgeClaim(claim, evidence, entities);
-      },
+      judgeClaim: (claim, evidence, entities) => this.decisions.judgeClaim(claim, evidence, entities),
       explain: (state, onToken) => this.llm.explain(state, onToken),
     };
   }
@@ -667,19 +519,5 @@ function entityOf(profile: OfficialProfile): EntityRef {
     partido: profile.party,
     fotoUrl: profile.fotoUrl,
     alias: null,
-  };
-}
-
-function sourceOf(profile: OfficialProfile, rule: Extract<ProfileRule, { kind: "verdict" }>): SourceRef {
-  return {
-    id: `ficha-${profile.id}`,
-    title: rule.source.title,
-    url: null,
-    snippet: rule.source.snippet,
-    origin: rule.source.origin,
-    role: "prueba",
-    stance: null,
-    pagina: null,
-    codigoExpediente: profile.codigoExpediente,
   };
 }

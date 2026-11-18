@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { searchQueries, webQuery, claimFocus, mentionsClaim, decide, asksOtherOffice, officeQueries, contextQueries, claimsToJudge, contrastTarget, isValueJudgment, sameCandidate, type OfficialProfile } from "./rules";
+import { searchQueries, webQuery, claimFocus, mentionsClaim, decide, asksOtherOffice, officeQueries, contextQueries, claimsToJudge, contrastTarget, fallbackQueries, isValueJudgment, sameCandidate, type OfficialProfile } from "./rules";
 
 const profile: OfficialProfile = {
   id: "hv-1",
@@ -195,6 +195,13 @@ describe("profile rules", () => {
       "Francis Allison fue ministro",
       "Francis Allison ministro",
     ]);
+    assert.deepEqual(contextQueries("Elio Riera", "ha sido suspendido por tres meses del ejercicio profesional"), [
+      "Elio Riera suspendido",
+    ]);
+    const backup = fallbackQueries("Elio Riera", "ha sido suspendido por tres meses del ejercicio profesional");
+    assert.equal(backup.length, 1);
+    assert.match(backup[0], /Elio Riera/);
+    assert.match(backup[0], /suspendido/);
     assert.deepEqual(
       claimsToJudge("Daniel Urresti fue ministro del Interior durante el gobierno de Alejandro Toledo.", [
         "Daniel Urresti fue ministro del Interior",

@@ -7,28 +7,32 @@ description: Rules for TUMI claim verification. Use when changing verdicts, pres
 
 The citizen's sentence gets one verdict. Extracted clauses search and explain. They do not replace the sentence.
 
+The agent plans the searches, chooses the verdict, and writes the explanation. The code keeps a short policy. It does not script a case.
+
 ## The fact to check is not the person's title
 
-Before a hoja rule closes the sentence, an agent names the fact being contrasted. A profession word only identifies the person when the sentence asserts something else, such as a sanction, a resignation, an office, a promise, or a crime. `contrastTarget` removes a leading title (`El abogado …`) so that word cannot close the case on the education row.
+An agent names the fact being contrasted. A profession word only identifies the person when the sentence asserts something else. `contrastTarget` removes a leading title (`El abogado …`) so that word cannot match the education row by itself.
 
-A sentence that is itself about the degree or the job still uses that row.
+A sentence that is itself about the degree or the job still uses that row as evidence. The hoja does not close the verdict or write the citizen's sentence.
 
-## Source search always runs
+## The agent plans the search
 
-A hoja rule does not skip the press. `fromRule` still searches trusted outlets for the contrast target and keeps a note that names the candidate or states the fact. The graph path searches as well. The explainer may cite a outlet only when that note is in the source list.
+`planQueries` returns up to three queries and at most two statute ids from the catalog. Each query includes the person's name and looks for the fact. If the sentence denies a fact, the plan also searches the positive fact. If it claims another office, the plan searches that office. An id outside the catalog is dropped.
+
+If the model returns no queries, the only backup is the short name plus the fact to contrast. Do not add a phrase for a particular case.
+
+## A statute explains the rule
+
+A statute is reference for the explanation. It says what the law allows or requires, and it does not prove that this person did the act. `statuteQuery` uses the statute the agent chose, not the person's name. Those chunks use role `referencia`. The judge only sees role `prueba`.
 
 ## One sentence, one verdict
 
 If the query is a single sentence, judge that sentence. Do not score the first true clause.
 
-A wrong government, a promise treated as delivery, or a civil union called equal marriage makes the sentence false. A date missing from an excerpt does not, when a proof outlet already confirmed the act.
-
-## A denial searches the positive fact
-
-`nunca ocupó` or `nunca fue` plus a ministry searches `{name} fue ministro`, and that query stays inside the two-query cap. If a proof outlet publishes the appointment, the denial is `falso`. Silence in the hoja de vida is not that denial.
+The judge and the explainer share `CLAIM_POLICY`: use only the attached sources, a proof outlet that publishes the fact counts, the hoja and the padrón count only for what they declare, a statute does not prove the act, a complaint is not a conviction, and a value judgment without an indicator, a threshold, and a period is `no_verificable`.
 
 ## A proof outlet that states the fact stays proof
 
-`evidenceFits` keeps a content word of three or four letters when it is not filler and not a bare verb. `gay` in a headline counts. Do not send that note to contraste.
+`evidenceFits` keeps a content word of three or four letters when it is not filler and not a bare verb. Do not send that note to contraste.
 
 Proof outlets are RPP, El Comercio, La República, Agencia Andina, OjoPúblico, Convoca, IDL-Reporteros, PerúCheck, and IPE. OpenAI web search only supplies a cited sentence and a URL. It does not supply the article body, and an OpenAI shell skill does not replace these rules.

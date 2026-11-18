@@ -58,6 +58,27 @@ export const STATUTES: StatuteRule[] = [
 
 const OFFICE_CANDIDACY = /sera\b|postula|reeleccion|candidato|alcalde|regidor/;
 
+export function acceptedStatutes(ids: string[]): StatuteRule[] {
+  const chosen: StatuteRule[] = [];
+  for (const id of ids) {
+    const statute = STATUTES.find((item) => item.id === id);
+    if (!statute || chosen.some((item) => item.id === statute.id)) continue;
+    chosen.push(statute);
+    if (chosen.length === 2) break;
+  }
+  return chosen;
+}
+
+export function statuteQuery(query: string, statutes: StatuteRule[]): string {
+  if (statutes.length === 0) return "";
+  const folded = fold(query);
+  const hits = statutes.flatMap((statute) => {
+    const match = folded.match(statute.topics);
+    return match?.[0] ? [match[0], statute.title] : [statute.title];
+  });
+  return [...new Set(hits)].join(" ").slice(0, 180);
+}
+
 export function statutesFor(query: string): StatuteRule[] {
   const folded = fold(query);
   const matched = new Map<string, StatuteRule>();

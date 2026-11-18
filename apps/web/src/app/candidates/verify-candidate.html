@@ -122,6 +122,23 @@
           }
         </article>
       }
+      @if (reference().length) {
+        <h2 class="norma">La norma</h2>
+        <p class="muted">Explica la regla. No acredita este caso.</p>
+        @for (source of reference(); track source.id) {
+          <article>
+            @if (source.url) {
+              <a class="source-name" [href]="source.url" target="_blank" rel="noreferrer">{{ documentName(source.title) }}</a>
+            } @else {
+              <strong class="source-name">{{ documentName(source.title) }}</strong>
+            }
+            <p>{{ source.snippet }}</p>
+            @if (source.pagina !== null) {
+              <p class="muted">página {{ source.pagina }}</p>
+            }
+          </article>
+        }
+      }
       @if (contrast().length) {
         <h2 class="circula">Circula también</h2>
         <p class="muted">Mencionan el dato y no lo prueban.</p>

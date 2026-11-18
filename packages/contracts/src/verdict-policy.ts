@@ -13,7 +13,7 @@ export type VerdictCheck = (typeof VERDICT_CHECKS)[number];
 export const SOURCE_ORIGINS = ["jne", "qdrant", "tavily"] as const;
 export type SourceOrigin = (typeof SOURCE_ORIGINS)[number];
 
-export const SOURCE_ROLES = ["prueba", "contraste"] as const;
+export const SOURCE_ROLES = ["prueba", "contraste", "referencia"] as const;
 export type SourceRole = (typeof SOURCE_ROLES)[number];
 
 export const SOURCE_STANCES = ["afirma", "desacredita", "menciona"] as const;

@@ -57,9 +57,9 @@ export async function investigate(
   const stream = hooks(config);
   stream.onNode("investigacion", "start");
   const name = state.entities[0]?.nombre ?? "";
-  const queries = await deps.planQueries(questionKind(state.query), name, state.query);
+  const plan = await deps.planQueries(questionKind(state.query), name, state.query);
   stream.onNode("investigacion", "done");
-  return { queries };
+  return { queries: plan.queries, statutes: plan.statutes };
 }
 
 export async function retrieve(
@@ -75,13 +75,16 @@ export async function retrieve(
     state.entities,
     state.sessionId,
     state.queries,
+    state.statutes,
   );
+  const reference = found.filter((item) => item.role === "referencia");
+  const caseItems = found.filter((item) => item.role !== "referencia");
   const names = [
     ...state.entities.flatMap((entity) => entity.nombre.split(/\s+/)),
     ...state.claims.flatMap(leadingNames),
   ];
   const identity = state.entities[0];
-  const proof = found.filter((item) => {
+  const proof = caseItems.filter((item) => {
     if (item.role === "contraste") return false;
     if (item.origin === "tavily" && identity) {
       const named = sameCandidate(item.title, item.snippet, { name: identity.nombre, party: identity.partido });
@@ -92,12 +95,12 @@ export async function retrieve(
     }
     return evidenceFits(state.claims, item, names);
   });
-  const contrast = found.filter((item) => !proof.includes(item));
+  const contrast = caseItems.filter((item) => !proof.includes(item));
   const ranked = await deps.rerank(state.claims, proof);
   const kept = coverOutlets(ranked, proof, trustedOutlet);
   const circulation = await deps.classifyCirculation(state.claims, contrast);
   stream.onNode("recuperacion", "done");
-  return { evidence: [...kept, ...circulation] };
+  return { evidence: [...kept, ...reference, ...circulation] };
 }
 
 export async function verify(
@@ -110,7 +113,7 @@ export async function verify(
   const verdicts = [];
   let degraded = false;
   for (const claim of claimsToJudge(state.query, state.claims)) {
-    const prueba = state.evidence.filter((item) => item.role !== "contraste");
+    const prueba = state.evidence.filter((item) => item.role === "prueba");
     const judged = await deps.judgeClaim(claim, prueba, state.entities);
     degraded = degraded || judged.degraded;
     const verdict = {
