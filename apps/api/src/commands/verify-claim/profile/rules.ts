@@ -119,11 +119,48 @@ export function isSingleSentence(query: string): boolean {
   return breaks.length <= 1;
 }
 
+const CONCLUSION = /\bdemuestra\b|\bpor lo tanto\b|\bpor eso\b|\basi que\b|\beso prueba\b|\blo que prueba\b|\blo cual prueba\b/;
+
+const CLAUSE_MODIFIER =
+  /^(?:durante|segun|para|porque|aunque|donde|cuando|como|tras|luego|despues|antes|con|por|en|de|del|al|que)\b/;
+
+const CLAUSE_VERB =
+  /\b(?:ha|han|he|hemos|es|son|fue|fueron|era|eran|esta|estan|estuvo|tiene|tienen|tuvo|puede|pueden|podra|podran|debe|deben|hay|hubo|dijo|hizo|hace|hacen|sido|estado|hecho)\b/;
+
 export function claimsToJudge(query: string, extracted: string[]): string[] {
   const sentence = query.trim();
-  if (sentence && isSingleSentence(sentence)) return [sentence];
   const parts = extracted.map((item) => item.trim()).filter((item) => item.length > 0);
+  if (sentence && isSingleSentence(sentence)) {
+    const split = independentClaims(sentence, parts);
+    return split.length > 1 ? split : [sentence];
+  }
   return parts.length > 0 ? parts : [sentence];
+}
+
+function independentClaims(sentence: string, extracted: string[]): string[] {
+  if (CONCLUSION.test(fold(sentence))) return [];
+  const folded = fold(sentence);
+  const stated = extracted.filter(
+    (item) => fold(item) !== folded && folded.includes(fold(item)) && standsAlone(item),
+  );
+  if (stated.length >= 2) return stated.slice(0, 4);
+  return coordinatedClauses(sentence);
+}
+
+function coordinatedClauses(sentence: string): string[] {
+  const pieces = sentence
+    .split(/\s+(?:y|pero|además)\s+/iu)
+    .map((item) => item.replace(/^[¿¡]+|[.!?]+$/gu, "").trim())
+    .filter((item) => item.length > 0);
+  if (pieces.length < 2 || pieces.length > 4) return [];
+  return pieces.every(standsAlone) ? pieces : [];
+}
+
+function standsAlone(text: string): boolean {
+  const folded = fold(text);
+  if (text.split(/\s+/).length < 2) return false;
+  if (CLAUSE_MODIFIER.test(folded)) return false;
+  return CLAUSE_VERB.test(folded);
 }
 
 export function contextQueries(name: string, query: string): string[] {

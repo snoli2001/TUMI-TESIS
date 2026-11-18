@@ -72,7 +72,7 @@ export class LlmService {
       });
       const response = await model.invoke([
         new SystemMessage(
-          'Devuelve solo JSON {"claims": string[]}. Separa la consulta en afirmaciones verificables, en español, sin agregar datos. Máximo 4.',
+          'Devuelve solo JSON {"claims": string[]}. Si la consulta junta afirmaciones que pueden ser ciertas o falsas por separado, devuélvelas aparte, en español y sin agregar datos. No separes una circunstancia del mismo hecho, como una fecha o un gobierno. No separes una conclusión que depende de la primera frase, como "demuestra que". Si es una sola afirmación, devuelve esa frase. Máximo 4.',
         ),
         new HumanMessage(query),
       ]);
@@ -143,12 +143,12 @@ export class LlmService {
       });
       const stream = await model.stream([
         new SystemMessage(
-          `Redacta en español una explicación breve para un ciudadano. Los veredictos ya están decididos y no puedes cambiarlos. El campo dato es el hecho que se contrasta. ${CLAIM_POLICY} Separa los argumentos en párrafos cortos y viñetas que empiecen con '- '. Usa **negrita** solo para el veredicto. Si el resultado está degradado, dilo.`,
+          `Redacta en español una explicación breve para un ciudadano. Los veredictos ya están decididos y no puedes cambiarlos. Si hay más de un veredicto, explica cada afirmación por separado y no las juntes en uno solo. El campo dato es el hecho que se contrasta. ${CLAIM_POLICY} Separa los argumentos en párrafos cortos y viñetas que empiecen con '- '. Usa **negrita** solo para el veredicto. Si el resultado está degradado, dilo.`,
         ),
         new HumanMessage(
           JSON.stringify({
             consulta: state.query,
-            dato: state.focus || state.query,
+            dato: state.verdicts.length > 1 ? state.verdicts.map((verdict) => verdict.claim) : state.focus || state.query,
             entidades: state.entities,
             veredictos: state.verdicts.map((verdict) => ({
               claim: verdict.claim,

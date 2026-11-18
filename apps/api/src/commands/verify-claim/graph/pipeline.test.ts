@@ -111,3 +111,33 @@ test("una oración partida se juzga entera", async () => {
   assert.equal(result.verdicts[0]?.claim, query);
   assert.equal(result.verdicts[0]?.verdict, "falso");
 });
+
+test("dos afirmaciones de una frase se juzgan aparte", async () => {
+  const judged: string[] = [];
+  const searched: string[] = [];
+  const deps = degradedDeps();
+  const query = "Ha difamado y no ha hecho mucho como congresista.";
+  deps.searchEvidence = async (focus) => {
+    searched.push(focus);
+    return [evidence];
+  };
+  deps.judgeClaim = async (claim) => {
+    judged.push(claim);
+    return { verdict: "no_verificable", confidence: null, degraded: true, explanation: "", decisions: [] };
+  };
+  const graph = buildGraph(deps, new MemorySaver());
+  const result = await graph.invoke(
+    { query, sessionId: "sesion-dos", consultaId: "consulta-dos" },
+    {
+      configurable: {
+        thread_id: "consulta-dos",
+        hooks: { onNode: () => undefined, onDecision: () => undefined, onToken: () => undefined },
+      },
+    },
+  );
+  assert.deepEqual(judged, ["Ha difamado", "no ha hecho mucho como congresista"]);
+  assert.deepEqual(searched, ["Ha difamado", "no ha hecho mucho como congresista"]);
+  assert.equal(result.verdicts.length, 2);
+  assert.equal(result.verdicts[0]?.claim, "Ha difamado");
+  assert.equal(result.verdicts[1]?.claim, "no ha hecho mucho como congresista");
+});

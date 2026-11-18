@@ -5,7 +5,7 @@ description: Rules for TUMI claim verification. Use when changing verdicts, pres
 
 # Verify a claim
 
-The citizen's sentence gets one verdict. Extracted clauses search and explain. They do not replace the sentence.
+Each independent claim gets its own verdict and its own search. A sentence that joins two claims that can be true or false on their own, with "y" or "pero", is judged twice. A circumstance of the same fact, and a conclusion that depends on the first clause ("demuestra que"), stay one verdict.
 
 The agent plans the searches, chooses the verdict, and writes the explanation. The code keeps a short policy. It does not script a case.
 
@@ -29,9 +29,9 @@ State pages are searched one portal at a time, and only the portal that fits the
 
 A statute is reference. It says what the law allows or requires, and it does not prove that this person did the act. `legalQuery` is an abstract legal question without the person's name. `statuteQuery` is the backup. Those chunks use role `referencia` and reach the judge as `referenciaNormativa`, separate from proof. The verdict sources stay role `prueba`. A state document is proof of what that document records.
 
-## One sentence, one verdict
+## One independent claim, one verdict
 
-If the query is a single sentence, judge that sentence. Do not score the first true clause.
+Judge the whole sentence when it states one fact. Judge each claim on its own when the sentence joins two facts that stand apart. Do not score only the first true clause, and do not merge those two facts into one verdict.
 
 The judge and the explainer share `CLAIM_POLICY`: use only the attached sources, a proof outlet that publishes the fact counts, the hoja and the padrón count only for what they declare, a statute does not prove the act, a complaint is not a conviction, and a value judgment without an indicator, a threshold, and a period is `no_verificable`.
 

@@ -235,6 +235,21 @@ describe("profile rules", () => {
       "Fue ministro.",
       "Renunció en 2009.",
     ]);
+    assert.deepEqual(
+      claimsToJudge("Ha difamado y no ha hecho mucho como congresista.", [
+        "Ha difamado",
+        "no ha hecho mucho como congresista",
+      ]),
+      ["Ha difamado", "no ha hecho mucho como congresista"],
+    );
+    assert.deepEqual(claimsToJudge("Ha difamado y no ha hecho mucho como congresista.", ["Ha difamado y no ha hecho mucho como congresista."]), [
+      "Ha difamado",
+      "no ha hecho mucho como congresista",
+    ]);
+    assert.deepEqual(
+      claimsToJudge("Fue ministro del Interior y de Defensa.", ["Fue ministro del Interior", "de Defensa"]),
+      ["Fue ministro del Interior y de Defensa."],
+    );
   });
 
   it("cita el cargo previo que sí está en la hoja de vida", () => {

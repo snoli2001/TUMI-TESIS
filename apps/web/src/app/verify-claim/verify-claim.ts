@@ -101,6 +101,7 @@ export class VerifyClaimPage {
 
   contrastedDatum(): string | null {
     const result = this.result();
+    if ((result?.verdicts.length ?? 0) > 1) return null;
     const focus = result?.focus?.trim() ?? "";
     if (!focus || focus === result?.query.trim()) return null;
     return focus;
