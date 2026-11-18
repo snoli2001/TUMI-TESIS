@@ -1,4 +1,5 @@
-import { leadingNames, mentions, sharesStem } from "../graph/mentions";
+import { evidenceFits, leadingNames, mentions, sharesStem } from "../graph/mentions";
+import { isIpeUrl, statePortal, trustedOutlet } from "../evidence/outlets";
 
 export interface OfficialProfile {
   id: string;
@@ -350,6 +351,23 @@ export function claimFocus(query: string, name: string): string {
     .filter((word) => !skipped.has(fold(word)))
     .join(" ")
     .slice(0, 180);
+}
+
+export function countsAsProof(
+  item: { origin: string; title: string; snippet: string; url: string | null },
+  query: string,
+  identity: { name: string; party?: string },
+): boolean {
+  if (item.origin !== "tavily") return true;
+  const text = fold(`${item.title} ${item.snippet}`);
+  if (/\bperu\b/.test(fold(query)) && !/\bperu\b/.test(text)) return false;
+  const named = sameCandidate(item.title, item.snippet, identity);
+  const official = Boolean(trustedOutlet(item.url) || statePortal(item.url) || isIpeUrl(item.url));
+  const onClaim =
+    mentionsClaim(item.title, item.snippet, query, identity.name) ||
+    evidenceFits([query], item, identity.name.split(/\s+/));
+  if (!onClaim) return false;
+  return named || official;
 }
 
 export function mentionsClaim(title: string, snippet: string, query: string, name: string): boolean {

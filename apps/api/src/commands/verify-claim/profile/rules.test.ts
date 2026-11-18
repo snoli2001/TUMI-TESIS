@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { searchQueries, webQuery, claimFocus, mentionsClaim, decide, asksOtherOffice, officeQueries, contextQueries, claimsToJudge, contrastTarget, fallbackQueries, searchList, isValueJudgment, sameCandidate, type OfficialProfile } from "./rules";
+import { searchQueries, webQuery, claimFocus, mentionsClaim, countsAsProof, decide, asksOtherOffice, officeQueries, contextQueries, claimsToJudge, contrastTarget, fallbackQueries, searchList, isValueJudgment, sameCandidate, type OfficialProfile } from "./rules";
 
 const profile: OfficialProfile = {
   id: "hv-1",
@@ -286,6 +286,46 @@ describe("profile rules", () => {
     );
     assert.equal(
       mentionsClaim("RPP", "Crece la tasa de desempleo en España.", foco, "Daniel Belizario Urresti Elera"),
+      false,
+    );
+  });
+
+  it("una nota de la misma persona no prueba el hecho si no lo menciona", () => {
+    const identity = { name: "Elio Fernando Riera Garro" };
+    const hecho = "ha sido suspendido por tres meses del ejercicio profesional";
+    assert.equal(
+      countsAsProof(
+        {
+          origin: "tavily",
+          title: "El recurso fue presentado por el abogado Elio Riera",
+          snippet: "Representó a Alberto Fujimori ante la Corte Suprema.",
+          url: "https://larepublica.pe/politica/recurso",
+        },
+        hecho,
+        identity,
+      ),
+      false,
+    );
+    assert.equal(
+      countsAsProof(
+        {
+          origin: "tavily",
+          title: "Suspenden a Elio Riera por faltar a la verdad",
+          snippet: "No podrá ejercer la profesión por 3 meses.",
+          url: "https://larepublica.pe/politica/suspenden",
+        },
+        hecho,
+        identity,
+      ),
+      true,
+    );
+    assert.equal(
+      mentionsClaim(
+        "Hoja de vida",
+        "ABOGADO, UNIVERSIDAD PERUANA DE CIENCIAS APLICADAS, 2011",
+        hecho,
+        "Elio Riera",
+      ),
       false,
     );
   });

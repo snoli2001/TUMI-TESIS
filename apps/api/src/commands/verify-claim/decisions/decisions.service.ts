@@ -68,7 +68,8 @@ export class DecisionsService {
       return answer?.type === "predicate" && answer.probability >= threshold;
     });
     if (kept.length > 0) return kept.slice(0, 8);
-    return hasOtherEvidence ? [] : limited.slice(0, 3);
+    if (hasOtherEvidence) return [];
+    return limited.filter((item) => item.title !== "Hoja de vida").slice(0, 3);
   }
 
   async classifyCirculation(claims: string[], evidence: EvidenceItem[]): Promise<EvidenceItem[]> {

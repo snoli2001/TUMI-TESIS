@@ -1,7 +1,7 @@
 import type { RunnableConfig } from "@langchain/core/runnables";
 import type { EntityRef } from "@tumi/contracts";
 import { statePortal, trustedOutlet } from "../evidence/outlets";
-import { claimsToJudge, mentionsClaim, questionKind, sameCandidate } from "../profile/rules";
+import { claimsToJudge, countsAsProof, questionKind } from "../profile/rules";
 import type { AgentDeps, StreamHooks, TumiState } from "./state";
 import { coverOutlets, evidenceFits, leadingNames } from "./mentions";
 
@@ -99,11 +99,11 @@ export async function retrieve(
   const subject = state.focus.trim() || state.query;
   const proof = caseItems.filter((item) => {
     if (item.role === "contraste") return false;
-    if (item.origin === "tavily" && identity) {
-      const named = sameCandidate(item.title, item.snippet, { name: identity.nombre, party: identity.partido });
-      const official = Boolean(trustedOutlet(item.url) || statePortal(item.url));
-      const onClaim = official && mentionsClaim(item.title, item.snippet, subject, identity.nombre);
-      if (!named && !onClaim) return false;
+    if (
+      identity &&
+      !countsAsProof(item, subject, { name: identity.nombre, party: identity.partido })
+    ) {
+      return false;
     }
     return evidenceFits(state.focus.trim() ? [subject] : state.claims, item, names);
   });
@@ -111,8 +111,12 @@ export async function retrieve(
   const ranked = await deps.rerank(state.focus.trim() ? [subject] : state.claims, proof);
   const kept = coverOutlets(ranked, proof, (url) => trustedOutlet(url) ?? statePortal(url));
   const circulation = await deps.classifyCirculation(state.claims, contrast);
+  const urls = [...new Set(found.flatMap((item) => (item.url ? [item.url] : [])))];
   stream.onNode("recuperacion", "done");
-  return { evidence: [...kept, ...reference, ...circulation] };
+  return {
+    evidence: [...kept, ...reference, ...circulation],
+    trace: { press: state.queries, state: state.stateQueries, urls },
+  };
 }
 
 export async function verify(

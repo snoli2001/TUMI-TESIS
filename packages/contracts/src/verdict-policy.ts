@@ -80,11 +80,18 @@ export interface ClaimVerdict {
   check?: VerdictCheck;
 }
 
+export interface SearchTrace {
+  press: string[];
+  state: string[];
+  urls: string[];
+}
+
 export interface FactCheckResult {
   id: string;
   sessionId: string;
   query: string;
   focus?: string;
+  trace?: SearchTrace;
   conclusion: string;
   degraded: boolean;
   verdicts: ClaimVerdict[];

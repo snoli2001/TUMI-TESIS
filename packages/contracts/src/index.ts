@@ -10,6 +10,7 @@ import {
   type EntityRef,
   type FactCheckRequest,
   type FactCheckResult,
+  type SearchTrace,
   type SourceRef,
   type VerificarVideoRequest,
 } from "./verdict-policy.js";
@@ -90,11 +91,18 @@ export const claimVerdictSchema: z.ZodType<ClaimVerdict> = z.object({
   check: z.enum(VERDICT_CHECKS).optional(),
 });
 
+const searchTraceSchema: z.ZodType<SearchTrace> = z.object({
+  press: z.array(z.string()),
+  state: z.array(z.string()),
+  urls: z.array(z.string()),
+});
+
 export const factCheckResultSchema: z.ZodType<FactCheckResult> = z.object({
   id: z.string(),
   sessionId: z.string(),
   query: z.string(),
   focus: z.string().optional(),
+  trace: searchTraceSchema.optional(),
   conclusion: z.string(),
   degraded: z.boolean(),
   verdicts: z.array(claimVerdictSchema),

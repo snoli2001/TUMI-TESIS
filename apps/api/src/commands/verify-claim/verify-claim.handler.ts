@@ -2,7 +2,7 @@ import { Injectable, Logger, NotFoundException, OnModuleInit } from "@nestjs/com
 import { MemorySaver } from "@langchain/langgraph";
 import { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
 import type { BaseCheckpointSaver } from "@langchain/langgraph-checkpoint";
-import type { ClaimVerdict, FactCheckRequest, FactCheckResult, EntityRef, SourceRef } from "@tumi/contracts";
+import type { ClaimVerdict, FactCheckRequest, FactCheckResult, EntityRef, SearchTrace, SourceRef } from "@tumi/contracts";
 import { factCheckResultSchema } from "@tumi/contracts";
 import { getPrisma } from "@tumi/database";
 import { DecisionsService } from "./decisions/decisions.service";
@@ -16,6 +16,7 @@ import type { AgentDeps, EvidenceItem, StreamHooks, TumiState } from "./graph/st
 import { loadProfile } from "./profile/load-profile";
 import {
   asksOtherOffice,
+  mentionsClaim,
   searchList,
   officialReading,
   questionKind,
@@ -169,6 +170,7 @@ export class VerifyClaimHandler implements OnModuleInit {
       mergeSources([truth.sources, saidSources]),
       truth.entities.length > 0 ? truth.entities : [entity],
       truth.focus,
+      truth.trace,
     );
   }
 
@@ -207,12 +209,14 @@ export class VerifyClaimHandler implements OnModuleInit {
     sources: SourceRef[],
     entities: EntityRef[],
     focus = "",
+    trace?: SearchTrace,
   ): FactCheckResult {
     return factCheckResultSchema.parse({
       id: sessionId,
       sessionId,
       query,
       ...(focus.trim() ? { focus: focus.trim() } : {}),
+      ...storedTrace(trace),
       conclusion,
       degraded: verdicts.some((verdict) => verdict.degraded),
       verdicts,
@@ -231,6 +235,7 @@ export class VerifyClaimHandler implements OnModuleInit {
       sessionId,
       query,
       ...(result.focus.trim() ? { focus: result.focus.trim() } : {}),
+      ...storedTrace(result.trace),
       conclusion: result.conclusion,
       degraded: result.degraded,
       verdicts: result.verdicts,
@@ -293,12 +298,12 @@ export class VerifyClaimHandler implements OnModuleInit {
           this.vectors.search(text, { codigoExpedientes, sessionId, hojaVidaIds, includePlan }),
           this.web.search(searches, identity),
           legal ? this.vectors.searchStatutes(legal, matched.map((statute) => statute.id)) : Promise.resolve([]),
-          this.web.stateDocuments(stateQueries, identity),
+          this.web.stateDocuments(stateQueries, identity, subject),
         ]);
         const reference = statutes.map((item) => ({ ...item, role: "referencia" as const }));
         const official = profile ? officialEvidence(profile, subject) : [];
         const roster = profile && asksOtherOffice(subject, profile.office) ? rosterEvidence(profile) : [];
-        return [...official, ...roster, ...reference, ...(profile ? resumeEvidence(profile) : []), ...local, ...remote, ...officialPages];
+        return [...official, ...roster, ...reference, ...(profile ? resumeEvidence(profile, subject) : []), ...local, ...remote, ...officialPages];
       },
       rerank: async (claims, evidence) => {
         const pinnedItems = evidence.filter(
@@ -309,7 +314,8 @@ export class VerifyClaimHandler implements OnModuleInit {
         return [...pinnedItems, ...ranked];
       },
       classifyCirculation: (claims, evidence) => this.decisions.classifyCirculation(claims, evidence),
-      judgeClaim: (claim, evidence, entities) => this.decisions.judgeClaim(claim, evidence, entities),
+      judgeClaim: (claim, evidence, entities, reference, focus) =>
+        this.decisions.judgeClaim(claim, evidence, entities, reference, focus),
       explain: (state, onToken) => this.llm.explain(state, onToken),
     };
   }
@@ -427,7 +433,7 @@ function officialEvidence(profile: OfficialProfile, query: string): TumiState["e
   ];
 }
 
-function resumeEvidence(profile: OfficialProfile): TumiState["evidence"] {
+function resumeEvidence(profile: OfficialProfile, subject: string): TumiState["evidence"] {
   const sentences = profile.sentences.slice(0, 6).map((item, index) => ({
     id: `sentencia-${profile.id}-${index}`,
     title: "Hoja de vida",
@@ -450,7 +456,13 @@ function resumeEvidence(profile: OfficialProfile): TumiState["evidence"] {
     pagina: null,
     codigoExpediente: profile.codigoExpediente,
   }));
-  return [...sentences, ...record];
+  return [...sentences, ...record].filter((item) => mentionsClaim(item.title, item.snippet, subject, profile.name));
+}
+
+function storedTrace(trace: SearchTrace | undefined): { trace: SearchTrace } | Record<string, never> {
+  if (!trace) return {};
+  if (trace.press.length === 0 && trace.state.length === 0 && trace.urls.length === 0) return {};
+  return { trace };
 }
 
 function saidVerdict(claim: string, source: SourceRef | null): ClaimVerdict {

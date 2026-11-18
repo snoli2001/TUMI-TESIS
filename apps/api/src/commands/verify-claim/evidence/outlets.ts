@@ -72,6 +72,25 @@ const STATE_PORTALS: Array<{ domain: string; label: string }> = [
 
 export const STATE_DOMAINS = STATE_PORTALS.map((item) => item.domain);
 
+export function portalsFor(text: string): string[] {
+  const folded = text
+    .toLocaleLowerCase("es")
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "");
+  const portals: string[] = [];
+  if (/sentencia|condena|juzgado|expediente|proceso judicial|sala penal|sala civil/.test(folded)) portals.push("pj.gob.pe");
+  if (/fiscalia|ministerio publico|denuncia penal/.test(folded)) portals.push("mpfn.gob.pe");
+  if (/vacancia|eleccion|reeleccion|jurado nacional/.test(folded)) portals.push("jne.gob.pe");
+  if (/tribunal constitucional|inconstitucional/.test(folded)) portals.push("tc.gob.pe");
+  if (/contralor/.test(folded)) portals.push("contraloria.gob.pe");
+  if (/indecopi|consumidor/.test(folded)) portals.push("indecopi.gob.pe");
+  if (/sunat|impuesto|tribut/.test(folded)) portals.push("sunat.gob.pe");
+  if (/servir|servicio civil/.test(folded)) portals.push("servir.gob.pe");
+  if (/el peruano|decreto supremo|ley n/.test(folded)) portals.push("elperuano.pe");
+  if (portals.length === 0 && /sancion administrativa|resolucion ministerial|inhabilit/.test(folded)) portals.push("gob.pe");
+  return [...new Set(portals)].slice(0, 2);
+}
+
 export function statePortal(url: string | null): string | null {
   const host = hostOf(url);
   if (!host) return null;

@@ -1,5 +1,5 @@
 import { Annotation } from "@langchain/langgraph";
-import type { ClaimVerdict, EntityRef, SourceRef } from "@tumi/contracts";
+import type { ClaimVerdict, EntityRef, SearchTrace, SourceRef } from "@tumi/contracts";
 import type { QuestionKind } from "../profile/rules";
 
 export interface EvidenceItem extends SourceRef {
@@ -18,6 +18,10 @@ export const TumiAnnotation = Annotation.Root({
   statutes: Annotation<string[]>({ reducer: (_left, right) => right, default: () => [] }),
   legalQuery: Annotation<string>({ reducer: (_left, right) => right, default: () => "" }),
   evidence: Annotation<EvidenceItem[]>({ reducer: (_left, right) => right, default: () => [] }),
+  trace: Annotation<SearchTrace>({
+    reducer: (_left, right) => right,
+    default: () => ({ press: [], state: [], urls: [] }),
+  }),
   verdicts: Annotation<ClaimVerdict[]>({ reducer: (_left, right) => right, default: () => [] }),
   conclusion: Annotation<string>({ reducer: (_left, right) => right, default: () => "" }),
   degraded: Annotation<boolean>({ reducer: (left, right) => left || right, default: () => false }),

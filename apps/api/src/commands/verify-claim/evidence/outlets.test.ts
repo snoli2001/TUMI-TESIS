@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isFactCheckUrl, isIpeUrl, isSocialUrl, preferReporting, roleForUrl, socialNetwork, statePortal, trustedOutlet } from "./outlets";
+import { isFactCheckUrl, isIpeUrl, isSocialUrl, portalsFor, preferReporting, roleForUrl, socialNetwork, statePortal, trustedOutlet } from "./outlets";
 
 test("una crónica deja fuera la columna cuando ambas son del mismo medio", () => {
   const news = { url: "https://larepublica.pe/politica/2026/11/06/rafael-lopez-aliaga-no-sera-alcalde-de-lima" };
@@ -44,6 +44,12 @@ test("una página del Estado cuenta como prueba y se nombra el portal", () => {
   assert.equal(statePortal("https://diariooficial.elperuano.pe/norma"), "El Peruano");
   assert.equal(roleForUrl("https://cdn.www.gob.pe/uploads/codigo.pdf"), "prueba");
   assert.equal(statePortal("https://elcomercio.pe/nota"), null);
+});
+
+test("cada hecho abre solo el portal que le corresponde", () => {
+  assert.deepEqual(portalsFor("tiene una sentencia por estafa"), ["pj.gob.pe"]);
+  assert.deepEqual(portalsFor("la vacancia de su alcaldía"), ["jne.gob.pe"]);
+  assert.deepEqual(portalsFor("el desempleo ronda el 7 por ciento"), []);
 });
 
 test("una red social se reconoce y no verifica un hecho", () => {

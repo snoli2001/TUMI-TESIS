@@ -2,9 +2,9 @@ import { Injectable, Logger } from "@nestjs/common";
 import { tavily, type TavilySearchOptions } from "@tavily/core";
 import OpenAI from "openai";
 import type { EvidenceItem } from "../graph/state";
-import { claimFocus, mentionsClaim, sameCandidate } from "../profile/rules";
+import { claimFocus, countsAsProof } from "../profile/rules";
 import { socialPostCounts } from "./attribution";
-import { isFactCheckUrl, isIpeUrl, isSocialUrl, NEWS_DOMAINS, preferReporting, roleForUrl, SOCIAL_DOMAINS, socialNetwork, statePortal, STATE_DOMAINS, TRUSTED_DOMAINS, trustedOutlet } from "./outlets";
+import { isFactCheckUrl, isSocialUrl, NEWS_DOMAINS, portalsFor, preferReporting, roleForUrl, SOCIAL_DOMAINS, socialNetwork, TRUSTED_DOMAINS } from "./outlets";
 import { needsPressFallback, pressItems } from "./press-fallback";
 
 interface SearchBatch {
@@ -38,25 +38,29 @@ export class WebSearchService {
   async stateDocuments(
     queries: string[],
     identity?: { name: string; party?: string },
+    fact = "",
   ): Promise<EvidenceItem[]> {
     const texts = [...new Set(queries.map((item) => item.trim()).filter((item) => item.length >= 3))].slice(0, 2);
-    if (texts.length === 0) return [];
+    const portals = portalsFor(fact || texts.join(" "));
+    if (texts.length === 0 || portals.length === 0) return [];
     const lists = await Promise.all(
-      texts.map((text) =>
-        this.ask(text, {
-          topic: "general",
-          searchDepth: "advanced",
-          maxResults: 4,
-          includeDomains: [...STATE_DOMAINS],
-          includeDomainsMode: "restrict",
-        }),
+      texts.flatMap((text) =>
+        portals.map((domain) =>
+          this.ask(text, {
+            topic: "general",
+            searchDepth: "advanced",
+            maxResults: 4,
+            includeDomains: [domain],
+            includeDomainsMode: "restrict",
+          }),
+        ),
       ),
     );
     const items = lists.flatMap((batch) => batch.items);
     const notes = this.keep(items, texts[0], identity);
     if (!needsPressFallback(notes.length, items.length === 0 && lists.some((batch) => batch.unavailable))) return notes;
     this.logger.warn("Tavily no disponible: se consultan portales del Estado con OpenAI");
-    return this.keep(await this.openAiState(texts), texts[0], identity);
+    return this.keep(await this.openAiState(texts, portals), texts[0], identity);
   }
 
   async socialPosts(statement: string, identity: { name: string; party?: string }): Promise<EvidenceItem[]> {
@@ -168,19 +172,13 @@ export class WebSearchService {
   private keep(items: EvidenceItem[], query: string, identity?: { name: string; party?: string }): EvidenceItem[] {
     const notes = unique(items);
     if (!identity?.name.trim()) return notes;
-    return notes.filter((item) => {
-      if (isIpeUrl(item.url)) return true;
-      const aboutCandidate = sameCandidate(item.title, item.snippet, identity);
-      const official = Boolean(trustedOutlet(item.url) || statePortal(item.url));
-      if (official && mentionsClaim(item.title, item.snippet, query, identity.name)) return true;
-      return aboutCandidate;
-    });
+    return notes.filter((item) => countsAsProof(item, query, identity));
   }
 
-  private async openAiState(queries: string[]): Promise<EvidenceItem[]> {
+  private async openAiState(queries: string[], domains: string[]): Promise<EvidenceItem[]> {
     return this.openAiSearch(
       queries,
-      [...STATE_DOMAINS],
+      domains,
       "Busca sentencias, resoluciones o documentos oficiales. Escribe cada documento en su propia línea: una frase tomada de la página y, al final, la cita. No agregues datos que no estén en esa página.",
     );
   }
