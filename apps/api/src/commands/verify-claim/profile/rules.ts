@@ -309,6 +309,13 @@ export function fallbackQueries(name: string, query: string): string[] {
   return fact.length >= 3 ? [fact] : [];
 }
 
+export function searchList(name: string, focus: string, planned: string[]): string[] {
+  return [...fallbackQueries(name, focus), ...planned]
+    .map((item) => item.trim())
+    .filter((item) => item.length >= 3)
+    .filter((item, index, all) => all.indexOf(item) === index);
+}
+
 export function webQuery(shortName: string, query: string, fullName: string): string {
   const fact = factTokens(query, fullName).slice(0, 8).join(" ");
   const year = /postul|candidat|alcald|2026/.test(fold(query)) ? "2026" : "";

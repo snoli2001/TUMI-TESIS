@@ -16,7 +16,7 @@ import type { AgentDeps, EvidenceItem, StreamHooks, TumiState } from "./graph/st
 import { loadProfile } from "./profile/load-profile";
 import {
   asksOtherOffice,
-  fallbackQueries,
+  searchList,
   officialReading,
   questionKind,
   type OfficialProfile,
@@ -273,8 +273,7 @@ export class VerifyClaimHandler implements OnModuleInit {
         const hojaVidaIds = profile ? [profile.id] : entities.map((entity) => entity.id);
         const name = profile?.shortName || entities[0]?.nombre || "";
         const focus = question || query;
-        const planned = queries.length > 0 ? queries : fallbackQueries(name, focus);
-        const searches = planned.filter((item, index, all) => all.indexOf(item) === index);
+        const searches = searchList(name, focus, queries);
         const identity = {
           name: profile?.name || entities[0]?.nombre || "",
           party: profile?.party || entities[0]?.partido || "",
