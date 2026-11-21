@@ -1,0 +1,605 @@
+{
+  "note": "Plantilla de la rúbrica. No adjudica ningún caso: RLA04, DU05 y CB05 quedan vacíos hasta que dos revisores resuelvan el desacuerdo. Copien evaluation-output/reviews.blank.json a reviews.json y llenen esa copia. La siguiente corrida vuelve a escribir el archivo en blanco.",
+  "cases": [
+    {
+      "id": "FA01",
+      "passes": [
+        {
+          "reviewer": "reviewer-a",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        },
+        {
+          "reviewer": "reviewer-b",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        }
+      ],
+      "adjudicatedVerdict": null,
+      "adjudicatedPassage": null,
+      "adjudicatedAbstains": null,
+      "adjudicatedCitations": [],
+      "adjudicatedSentences": []
+    },
+    {
+      "id": "FA02",
+      "passes": [
+        {
+          "reviewer": "reviewer-a",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        },
+        {
+          "reviewer": "reviewer-b",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        }
+      ],
+      "adjudicatedVerdict": null,
+      "adjudicatedPassage": null,
+      "adjudicatedAbstains": null,
+      "adjudicatedCitations": [],
+      "adjudicatedSentences": []
+    },
+    {
+      "id": "FA03",
+      "passes": [
+        {
+          "reviewer": "reviewer-a",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        },
+        {
+          "reviewer": "reviewer-b",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        }
+      ],
+      "adjudicatedVerdict": null,
+      "adjudicatedPassage": null,
+      "adjudicatedAbstains": null,
+      "adjudicatedCitations": [],
+      "adjudicatedSentences": []
+    },
+    {
+      "id": "FA04",
+      "passes": [
+        {
+          "reviewer": "reviewer-a",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        },
+        {
+          "reviewer": "reviewer-b",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        }
+      ],
+      "adjudicatedVerdict": null,
+      "adjudicatedPassage": null,
+      "adjudicatedAbstains": null,
+      "adjudicatedCitations": [],
+      "adjudicatedSentences": []
+    },
+    {
+      "id": "FA05",
+      "passes": [
+        {
+          "reviewer": "reviewer-a",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        },
+        {
+          "reviewer": "reviewer-b",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        }
+      ],
+      "adjudicatedVerdict": null,
+      "adjudicatedPassage": null,
+      "adjudicatedAbstains": null,
+      "adjudicatedCitations": [],
+      "adjudicatedSentences": []
+    },
+    {
+      "id": "RLA01",
+      "passes": [
+        {
+          "reviewer": "reviewer-a",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        },
+        {
+          "reviewer": "reviewer-b",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        }
+      ],
+      "adjudicatedVerdict": null,
+      "adjudicatedPassage": null,
+      "adjudicatedAbstains": null,
+      "adjudicatedCitations": [],
+      "adjudicatedSentences": []
+    },
+    {
+      "id": "RLA02",
+      "passes": [
+        {
+          "reviewer": "reviewer-a",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        },
+        {
+          "reviewer": "reviewer-b",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        }
+      ],
+      "adjudicatedVerdict": null,
+      "adjudicatedPassage": null,
+      "adjudicatedAbstains": null,
+      "adjudicatedCitations": [],
+      "adjudicatedSentences": []
+    },
+    {
+      "id": "RLA03",
+      "passes": [
+        {
+          "reviewer": "reviewer-a",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        },
+        {
+          "reviewer": "reviewer-b",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        }
+      ],
+      "adjudicatedVerdict": null,
+      "adjudicatedPassage": null,
+      "adjudicatedAbstains": null,
+      "adjudicatedCitations": [],
+      "adjudicatedSentences": []
+    },
+    {
+      "id": "RLA04",
+      "passes": [
+        {
+          "reviewer": "reviewer-a",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        },
+        {
+          "reviewer": "reviewer-b",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        }
+      ],
+      "adjudicatedVerdict": null,
+      "adjudicatedPassage": null,
+      "adjudicatedAbstains": null,
+      "adjudicatedCitations": [],
+      "adjudicatedSentences": []
+    },
+    {
+      "id": "RLA05",
+      "passes": [
+        {
+          "reviewer": "reviewer-a",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        },
+        {
+          "reviewer": "reviewer-b",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        }
+      ],
+      "adjudicatedVerdict": null,
+      "adjudicatedPassage": null,
+      "adjudicatedAbstains": null,
+      "adjudicatedCitations": [],
+      "adjudicatedSentences": []
+    },
+    {
+      "id": "DU01",
+      "passes": [
+        {
+          "reviewer": "reviewer-a",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        },
+        {
+          "reviewer": "reviewer-b",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        }
+      ],
+      "adjudicatedVerdict": null,
+      "adjudicatedPassage": null,
+      "adjudicatedAbstains": null,
+      "adjudicatedCitations": [],
+      "adjudicatedSentences": []
+    },
+    {
+      "id": "DU02",
+      "passes": [
+        {
+          "reviewer": "reviewer-a",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        },
+        {
+          "reviewer": "reviewer-b",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        }
+      ],
+      "adjudicatedVerdict": null,
+      "adjudicatedPassage": null,
+      "adjudicatedAbstains": null,
+      "adjudicatedCitations": [],
+      "adjudicatedSentences": []
+    },
+    {
+      "id": "DU03",
+      "passes": [
+        {
+          "reviewer": "reviewer-a",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        },
+        {
+          "reviewer": "reviewer-b",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        }
+      ],
+      "adjudicatedVerdict": null,
+      "adjudicatedPassage": null,
+      "adjudicatedAbstains": null,
+      "adjudicatedCitations": [],
+      "adjudicatedSentences": []
+    },
+    {
+      "id": "DU04",
+      "passes": [
+        {
+          "reviewer": "reviewer-a",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        },
+        {
+          "reviewer": "reviewer-b",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        }
+      ],
+      "adjudicatedVerdict": null,
+      "adjudicatedPassage": null,
+      "adjudicatedAbstains": null,
+      "adjudicatedCitations": [],
+      "adjudicatedSentences": []
+    },
+    {
+      "id": "DU05",
+      "passes": [
+        {
+          "reviewer": "reviewer-a",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        },
+        {
+          "reviewer": "reviewer-b",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        }
+      ],
+      "adjudicatedVerdict": null,
+      "adjudicatedPassage": null,
+      "adjudicatedAbstains": null,
+      "adjudicatedCitations": [],
+      "adjudicatedSentences": []
+    },
+    {
+      "id": "CB01",
+      "passes": [
+        {
+          "reviewer": "reviewer-a",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        },
+        {
+          "reviewer": "reviewer-b",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        }
+      ],
+      "adjudicatedVerdict": null,
+      "adjudicatedPassage": null,
+      "adjudicatedAbstains": null,
+      "adjudicatedCitations": [],
+      "adjudicatedSentences": []
+    },
+    {
+      "id": "CB02",
+      "passes": [
+        {
+          "reviewer": "reviewer-a",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        },
+        {
+          "reviewer": "reviewer-b",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        }
+      ],
+      "adjudicatedVerdict": null,
+      "adjudicatedPassage": null,
+      "adjudicatedAbstains": null,
+      "adjudicatedCitations": [],
+      "adjudicatedSentences": []
+    },
+    {
+      "id": "CB03",
+      "passes": [
+        {
+          "reviewer": "reviewer-a",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        },
+        {
+          "reviewer": "reviewer-b",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        }
+      ],
+      "adjudicatedVerdict": null,
+      "adjudicatedPassage": null,
+      "adjudicatedAbstains": null,
+      "adjudicatedCitations": [],
+      "adjudicatedSentences": []
+    },
+    {
+      "id": "CB04",
+      "passes": [
+        {
+          "reviewer": "reviewer-a",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        },
+        {
+          "reviewer": "reviewer-b",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        }
+      ],
+      "adjudicatedVerdict": null,
+      "adjudicatedPassage": null,
+      "adjudicatedAbstains": null,
+      "adjudicatedCitations": [],
+      "adjudicatedSentences": []
+    },
+    {
+      "id": "CB05",
+      "passes": [
+        {
+          "reviewer": "reviewer-a",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        },
+        {
+          "reviewer": "reviewer-b",
+          "candidateOk": null,
+          "periodOk": null,
+          "passageSupports": null,
+          "abstainsProperly": null,
+          "proposedVerdict": null,
+          "citations": [],
+          "sentences": []
+        }
+      ],
+      "adjudicatedVerdict": null,
+      "adjudicatedPassage": null,
+      "adjudicatedAbstains": null,
+      "adjudicatedCitations": [],
+      "adjudicatedSentences": []
+    }
+  ]
+}

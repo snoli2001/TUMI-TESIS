@@ -555,6 +555,12 @@ En ingeniería de software estas cualidades se llaman **atributos de calidad**. 
 
 Esas reglas se contrastan con casos a mano en `evaluation/cases.ts` (por ejemplo trayectoria, negación absoluta, causa incorrecta). Cada caso trae persona, id de hoja, frase, etiqueta esperada, veredictos aceptados, criterio y un enlace de referencia. La corrida real es `pnpm --filter @tumi/api eval:cases`. No forma parte de `pnpm test`, porque llama a servicios de fuera.
 
+Esa corrida sigue contando el acuerdo con el conjunto de veredictos aceptados y si citó la misma URL. Además guarda el tiempo hasta el primer evento y hasta el resultado, el pasaje citado y las oraciones de la explicación. Va de a un caso, con tope de 180 s. Un tiempo agotado no se mezcla con otro error.
+
+`pnpm --filter @tumi/api eval:score` lee esa corrida y `reviews.json`. Dos personas llenan la rúbrica por separado: candidato, periodo, pasaje, abstención cuando el caso es no verificable, y si cada cita y cada oración quedan respaldadas. El informe publica la verificación respaldada, el macro-F1, la matriz y la precisión y cobertura de las citas solo cuando cada caso tiene una etiqueta adjudicada. La plantilla `reviews.template.json` no adjudica `RLA04`, `DU05` ni `CB05`. El kappa entre revisores se calcula antes de esa adjudicación. Si falta `reviews.json`, el comando deja la hoja en blanco y esas métricas quedan pendientes.
+
+Queda para después un conjunto reservado más amplio, la comparación entre solo JNE, JNE más PDF y JNE más PDF más noticias, y cuántos casos recuperan un pasaje válido entre los primeros cinco resultados.
+
 ### No hace trabajar de más (eficiencia)
 
 - La explicación llega por pedazos. La pantalla no espera el JSON final para mostrar algo.
@@ -650,7 +656,7 @@ Qué cubren las pruebas, en intención:
 - El recorte geográfico, la sesión, la clave del gestor y la retención.
 - Que el banco de casos esté bien formado.
 
-La corrida contra el sistema de verdad (`eval:cases`) es aparte, porque gasta llamadas externas.
+La corrida contra el sistema de verdad (`eval:cases`) es aparte, porque gasta llamadas externas. `eval:score` también: puntúa la rúbrica de esa corrida y no entra en `pnpm test`. Las cuentas del macro-F1, el kappa y los percentiles sí se prueban en `evaluation/metrics.test.ts`.
 
 ## 18. Una comprobación, de principio a fin
 
@@ -693,5 +699,6 @@ La corrida contra el sistema de verdad (`eval:cases`) es aparte, porque gasta ll
 | Las tablas | `packages/database/prisma/schema.prisma` |
 | Lo que caduca | `packages/database/src/retention-policy.ts` |
 | Los casos de prueba de la tesis | `apps/api/src/commands/verify-claim/evaluation/cases.ts` |
+| Las métricas y la rúbrica del piloto | `apps/api/src/commands/verify-claim/evaluation/metrics.ts` |
 | La guía del veredicto | `.claude/skills/verify-claim/SKILL.md` |
 | El resumen corto del proyecto | `README.md`, sección «Ruta de tesis» |

@@ -32,6 +32,11 @@
     "src/commands/verify-claim/evidence/statutes.test.ts",
     "src/commands/verify-claim/evaluation/cases.ts",
     "src/commands/verify-claim/evaluation/cases.test.ts",
+    "src/commands/verify-claim/evaluation/types.ts",
+    "src/commands/verify-claim/evaluation/metrics.ts",
+    "src/commands/verify-claim/evaluation/metrics.test.ts",
+    "src/commands/verify-claim/evaluation/rubric.ts",
     "src/commands/verify-claim/evaluation/run-cases.ts",
+    "src/commands/verify-claim/evaluation/score-reviews.ts",
   ]
 }
