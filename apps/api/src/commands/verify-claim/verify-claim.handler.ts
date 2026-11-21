@@ -296,7 +296,7 @@ export class VerifyClaimHandler implements OnModuleInit {
         const legal = (legalQuery.trim() || statuteQuery(subject, matched)).slice(0, 400);
         const [local, remote, statutes, officialPages] = await Promise.all([
           this.vectors.search(text, { codigoExpedientes, sessionId, hojaVidaIds, includePlan }),
-          this.web.search(searches, identity),
+          this.web.search(searches, identity, subject),
           legal ? this.vectors.searchStatutes(legal, matched.map((statute) => statute.id)) : Promise.resolve([]),
           this.web.stateDocuments(stateQueries, identity, subject),
         ]);

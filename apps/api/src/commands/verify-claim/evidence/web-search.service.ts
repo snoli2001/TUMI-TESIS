@@ -19,20 +19,21 @@ export class WebSearchService {
   async search(
     query: string | string[],
     identity?: { name: string; party?: string },
+    fact = "",
   ): Promise<EvidenceItem[]> {
     const queries = (Array.isArray(query) ? query : [query])
       .map((item) => item.trim().slice(0, 400))
       .filter((item) => item.length >= 3)
       .slice(0, 3);
     if (queries.length === 0) return [];
-    const focus = identity?.name ? claimFocus(queries[0], identity.name) : queries[0];
+    const focus = identity?.name ? claimFocus(fact || queries[0], identity.name) : fact || queries[0];
     const aboutPerson = /reelec/i.test(queries[0]);
-    const aboutClaim = aboutPerson || focus.length < 8 ? queries[0] : focus;
+    const aboutClaim = aboutPerson || focus.length < 8 ? fact || queries[0] : focus;
     const found = await this.gather(queries, aboutClaim);
-    const notes = this.keep(found.items, queries[0], identity);
+    const notes = this.keep(found.items, queries, identity, fact);
     if (!needsPressFallback(notes.length, found.unavailable)) return notes;
     this.logger.warn("Tavily no disponible: se consulta la prensa con OpenAI");
-    return this.keep(await this.openAiPress(queries), queries[0], identity);
+    return this.keep(await this.openAiPress(queries), queries, identity, fact);
   }
 
   async stateDocuments(
@@ -57,10 +58,10 @@ export class WebSearchService {
       ),
     );
     const items = lists.flatMap((batch) => batch.items);
-    const notes = this.keep(items, texts[0], identity);
+    const notes = this.keep(items, texts, identity, fact);
     if (!needsPressFallback(notes.length, items.length === 0 && lists.some((batch) => batch.unavailable))) return notes;
     this.logger.warn("Tavily no disponible: se consultan portales del Estado con OpenAI");
-    return this.keep(await this.openAiState(texts, portals), texts[0], identity);
+    return this.keep(await this.openAiState(texts, portals), texts, identity, fact);
   }
 
   async socialPosts(statement: string, identity: { name: string; party?: string }): Promise<EvidenceItem[]> {
@@ -169,10 +170,17 @@ export class WebSearchService {
     return { items, unavailable: items.length === 0 && parts.some((part) => part.unavailable) };
   }
 
-  private keep(items: EvidenceItem[], query: string, identity?: { name: string; party?: string }): EvidenceItem[] {
+  private keep(
+    items: EvidenceItem[],
+    queries: string[],
+    identity?: { name: string; party?: string },
+    fact = "",
+  ): EvidenceItem[] {
     const notes = unique(items);
     if (!identity?.name.trim()) return notes;
-    return notes.filter((item) => countsAsProof(item, query, identity));
+    const facts = [...new Set([fact, ...queries].map((item) => item.trim()).filter((item) => item.length >= 3))];
+    if (facts.length === 0) return notes;
+    return notes.filter((item) => facts.some((text) => countsAsProof(item, text, identity)));
   }
 
   private async openAiState(queries: string[], domains: string[]): Promise<EvidenceItem[]> {

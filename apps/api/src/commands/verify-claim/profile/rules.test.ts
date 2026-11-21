@@ -217,6 +217,16 @@ describe("profile rules", () => {
     ]);
     assert.deepEqual(listed, ["Elio Riera suspendido tres meses ejercicio profesional"]);
     assert.deepEqual(searchList("Elio Riera", "ha sido suspendido por tres meses del ejercicio profesional", []), backup);
+    const gay = fallbackQueries("Carlos Bruce", "Es gay");
+    assert.equal(gay.length, 1);
+    assert.match(gay[0], /Carlos Bruce/);
+    assert.match(gay[0], /gay/);
+    const recovered = searchList("Carlos Bruce", "Es gay", ["Carlos Bruce orientación sexual"]);
+    assert.ok(recovered.some((item) => /orientación sexual/.test(item)));
+    assert.ok(recovered.some((item) => /gay/.test(item)));
+    assert.deepEqual(searchList("Carlos Bruce", "Es gay", ["Carlos Bruce declaró que es gay"]), [
+      "Carlos Bruce declaró que es gay",
+    ]);
     assert.deepEqual(
       claimsToJudge("Daniel Urresti fue ministro del Interior durante el gobierno de Alejandro Toledo.", [
         "Daniel Urresti fue ministro del Interior",
@@ -302,6 +312,22 @@ describe("profile rules", () => {
     assert.equal(
       mentionsClaim("RPP", "Crece la tasa de desempleo en España.", foco, "Daniel Belizario Urresti Elera"),
       false,
+    );
+  });
+
+  it("una nota que dice gay sigue el dato aunque la palabra sea corta", () => {
+    assert.equal(
+      countsAsProof(
+        {
+          origin: "tavily",
+          title: "Gay y orgulloso de serlo, admite Carlos Bruce",
+          snippet: "El congresista habló en una entrevista.",
+          url: "https://rpp.pe/politica/gay-bruce",
+        },
+        "Es gay",
+        { name: "Carlos Ricardo Bruce Montes de Oca" },
+      ),
+      true,
     );
   });
 

@@ -357,7 +357,17 @@ export function searchList(name: string, focus: string, planned: string[]): stri
     .filter((item) => item.length >= 3)
     .filter((item, index, all) => all.indexOf(item) === index)
     .slice(0, 2);
-  return agent.length > 0 ? agent : fallbackQueries(name, focus);
+  const backup = fallbackQueries(name, focus);
+  if (agent.length === 0) return backup;
+  if (backup.length === 0 || queryCoversFact(agent, focus, name)) return agent;
+  return [...agent, ...backup].filter((item, index, all) => all.indexOf(item) === index).slice(0, 3);
+}
+
+function queryCoversFact(queries: string[], focus: string, name: string): boolean {
+  const tokens = searchWords(focus, name).map((word) => fold(word));
+  if (tokens.length === 0) return true;
+  const text = fold(queries.join(" "));
+  return tokens.some((token) => text.includes(token) || (token.length >= 5 && text.includes(token.slice(0, 5))));
 }
 
 export function webQuery(shortName: string, query: string, fullName: string): string {
@@ -371,15 +381,20 @@ function searchWords(query: string, name: string): string[] {
   const skipped = new Set(fold(name).split(/\s+/).filter((word) => word.length > 2));
   const seen = new Set<string>();
   const tokens: string[] = [];
+  const short: string[] = [];
   for (const word of contrastTarget(query).match(/\p{L}+|\d+(?:[.,]\d+)*/gu) ?? []) {
     const folded = fold(word);
     if (FILLER.has(folded) || SEARCH_NOISE.has(folded) || skipped.has(folded) || seen.has(folded)) continue;
-    if (!/^\d/.test(folded) && folded.length < 4) continue;
     seen.add(folded);
+    if (!/^\d/.test(folded) && folded.length < 4) {
+      if (folded.length >= 3) short.push(word);
+      continue;
+    }
     tokens.push(word);
   }
   const fact = tokens.filter((word) => !PROFESSION.test(fold(word)));
-  return fact.length > 0 ? fact : tokens;
+  const chosen = fact.length > 0 ? fact : tokens;
+  return chosen.length > 0 ? chosen : short;
 }
 
 export function claimFocus(query: string, name: string): string {
